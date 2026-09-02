@@ -1,4 +1,4 @@
-# Huddle (EtkinlikApp)
+# Huddle 
 
 Üniversite öğrencilerinin etkinlik oluşturup keşfedebildiği, topluluklara katılabildiği bir sosyal etkinlik platformu. Backend .NET 9 ile, mobil uygulama Flutter ile geliştirilmiştir.
 
