@@ -1,0 +1,14 @@
+# .NET derleme çıktıları
+**/bin/
+**/obj/
+*.user
+.vs/
+
+# gerçek API anahtarlarını/şifrelerini içerdiği için asla GitHub'a yüklenmemeli
+EtkinlikApp.Api/appsettings.json
+
+# macOS
+.DS_Store
+
+# editör ayarları (kişisel, yerel dosya yolları içeriyor)
+.vscode/
