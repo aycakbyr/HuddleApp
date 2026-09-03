@@ -100,6 +100,39 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
         _loadData();
     }
 
+    Future<void> _removeMember(String userId, String displayName) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+            title: const Text('Üyeyi çıkar'),
+            content: Text('$displayName kişisini topluluktan çıkarmak istediğine emin misin?'),
+            actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Vazgeç'),
+                ),
+                TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Çıkar', style: TextStyle(color: Colors.red)),
+                ),
+            ],
+        ),
+    );
+
+    if (confirmed != true) return;
+
+    final result = await _communityService.removeMember(widget.communityId, userId);
+    if (!mounted) return;
+
+    if (result['success'] != true) {
+        showAppSnackBar(context, result['message'], color: Colors.red);
+        return;
+    }
+
+    showAppSnackBar(context, 'Üye topluluktan çıkarıldı.', color: Colors.green);
+    _loadData();
+    }
+
     Widget _buildActionButton() {
         if (_isMember) {
             return SizedBox(
@@ -227,16 +260,26 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                                 : null,
                                         ),
                                         title: Text(member['displayName']),
-                                        trailing: member['role'] == 'Admin'
-                                            ? Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                    color: const Color(0xFF1A237E).withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(8),
+                                        trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                            if (member['role'] == 'Admin')
+                                                Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                        color: const Color(0xFF1A237E).withOpacity(0.1),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: const Text('Yönetici', style: TextStyle(fontSize: 12, color: Color(0xFF1A237E))),
+                                                    ),
+                                                    if (_isAdmin && member['userId'] != _myUserId)
+                                                    IconButton(
+                                                        onPressed: () => _removeMember(member['userId'], member['displayName']),
+                                                        icon: const Icon(Icons.person_remove_outlined, color: Colors.red, size: 20),
+                                                        tooltip: 'Topluluktan çıkar',
                                                 ),
-                                                child: const Text('Yönetici', style: TextStyle(fontSize: 12, color: Color(0xFF1A237E))),
-                                            )
-                                            : null,
+                                        ],
+                                        ),
                                     );
                                 }),
                             ],

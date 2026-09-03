@@ -201,6 +201,32 @@ public class CommunitiesController : ControllerBase
         return Ok(new { message = "Topluluktan ayrıldınız."});
     }
 
+    //api/communities/{id}/members/{userId}. yöentici üyeyi topluluktan çıkartabilir
+    [Authorize]
+    [HttpDelete("{id}/members/{userId}")]
+    public async Task<IActionResult> RemoveMember(Guid id, Guid userId)
+    {
+        var adminId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var isAdmin = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == adminId && m.Role == CommunityRole.Admin);
+        if (!isAdmin)
+            return Forbid();
+
+        if (userId == adminId)
+            return BadRequest(new { message = "Kendinizi bu şekilde çıkaramazsınız, topluluktan ayrılma seçeneğini kullan."});
+        
+        var membership = await _context.CommunityMembers
+            .FirstOrDefaultAsync(m => m.CommunityId == id && m.UserId == userId);
+        if (membership == null)
+           return NotFound(new { message = "Üye bulunamadı."});
+
+        _context.CommunityMembers.Remove(membership);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Üye topluluktan çıkarıldı."});
+    }
+
    // api/communities/{id}/requests. bekleyen istekleri listele
    [Authorize]
    [HttpGet("{id}/requests")]

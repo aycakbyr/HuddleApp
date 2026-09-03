@@ -89,4 +89,16 @@ class CommunityService {
             return {'success': false, 'message': message};
         }
     }
+
+    //bir üyeyi topluluktan çıkarır
+    Future<Map<String, dynamic>> removeMember(String communityId, String userId) async
+    {
+        try{
+            await _api.dio.delete('/communities/$communityId/members/$userId');
+            return {'success': true};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Üye çıkarılamadı.';
+            return {'success': false, 'message': message};
+        }
+    }
 }
