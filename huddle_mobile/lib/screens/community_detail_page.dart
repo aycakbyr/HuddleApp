@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/community_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
+import 'community_requests_page.dart';
 
 class CommunityDetailPage extends StatefulWidget {
     final String communityId;
@@ -151,6 +152,21 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                 elevation: 0,
                 title: Text(_community?['name'] ?? 'Topluluk', style: const TextStyle(color: Color(0xFF1A237E))),
                 iconTheme: const IconThemeData(color: Color(0xFF1A237E)),
+                actions: [
+                    if (_isAdmin)
+                        IconButton(
+                            onPressed: () {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => CommunityRequestsPage(communityId: widget.communityId),
+                                    ),
+                                );
+                            },
+                            icon: const Icon(Icons.person_add_outlined),
+                            tooltip: 'Katılım İstekleri',
+                        ),
+                ],
             ),
             body: _isLoading
                 ? const Center(child: CircularProgressIndicator())
