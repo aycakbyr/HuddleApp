@@ -3,8 +3,8 @@ namespace EtkinlikApp.Core.Entities;
 public class Message
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid EventId { get; set; }
-    public Event Event { get; set; } = null!;
+    public Guid? EventId { get; set; }
+    public Event? Event { get; set; } = null!;
     public Guid? CommunityId { get; set; }
     public Community? Community { get; set; }
     public Guid SenderId { get; set; }

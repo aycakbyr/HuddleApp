@@ -3,6 +3,7 @@ import '../services/community_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'community_requests_page.dart';
+import 'community_chat_page.dart';
 
 class CommunityDetailPage extends StatefulWidget {
     final String communityId;
@@ -199,6 +200,19 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                             icon: const Icon(Icons.person_add_outlined),
                             tooltip: 'Katılım İstekleri',
                         ),
+                        if (_isMember)
+                            IconButton(
+                                onPressed: () {
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) => CommunityChatPage(communityId: widget.communityId),
+                                        ),
+                                    );
+                                },
+                                icon: const Icon(Icons.chat_bubble_outline),
+                                tooltip: 'Sohbet',
+                            ),
                 ],
             ),
             body: _isLoading
