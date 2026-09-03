@@ -93,6 +93,11 @@ public class CommunitiesController : ControllerBase
         
         var eventCount = await _context.Events.CountAsync(e => e.CommunityId == id); // sadece sayı istediğimiz için 
 
+        var ratingCount = await _context.Ratings.CountAsync(r => r.Event.CommunityId == id);
+        var averageRating = ratingCount == 0
+            ? (double?)null
+            : Math.Round(await _context.Ratings.Where(r => r.Event.CommunityId == id).AverageAsync(r => (double)r.Score), 1);
+
         var dto = new CommunityDetailDto
         {
             Id = community.Id,
@@ -102,6 +107,8 @@ public class CommunitiesController : ControllerBase
             CreatedByUserId = community.CreatedByUserId,
             MemberCount = community.Members.Count,
             EventCount = eventCount,
+            AverageRating = averageRating,
+            RatingCount = ratingCount,
             Members = community.Members
                 .OrderByDescending(m => m.Role)
                 .Select(m => new CommunityMemberDto

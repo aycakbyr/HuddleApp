@@ -28,6 +28,8 @@ public class CommunityDetailDto
     public Guid CreatedByUserId { get; set; }
     public int MemberCount { get; set; }
     public int EventCount { get; set; }
+    public double? AverageRating { get; set; }
+    public int RatingCount { get; set; }
     public List<CommunityMemberDto> Members { get; set; } = new();
 }
 

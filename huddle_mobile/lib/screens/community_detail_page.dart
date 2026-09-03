@@ -199,7 +199,9 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                 const SizedBox(height: 4),
                                 Center(
                                     child: Text(
-                                        '${_community!['memberCount']} üye · ${_community!['eventCount']} etkinlik',
+                                        _community!['ratingCount'] > 0
+                                        ? '${_community!['memberCount']} üye · ${_community!['eventCount']} etkinlik · ⭐ ${_community!['averageRating']} (${_community!['ratingCount']})'
+                                        : '${_community!['memberCount']} üye · ${_community!['eventCount']} etkinlik',
                                         style: const TextStyle(color: Colors.grey, fontSize: 13),
                                     ),
                                 ),
