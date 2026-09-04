@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'community_requests_page.dart';
 import 'community_chat_page.dart';
+import 'community_photos_page.dart';
 
 class CommunityDetailPage extends StatefulWidget {
     final String communityId;
@@ -21,6 +22,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
     bool _isLoading = true;
     bool _isActionLoading = false;
     bool _hasPendingRequest = false; // sadece bu oturumda istek gönderildiyse true olur
+    String _memberSearchQuery = ''; // üye arama kutusuna yazılan metin
 
     @override
     void initState() {
@@ -179,6 +181,17 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
 
     @override
     Widget build(BuildContext context) {
+        final members = _community == null
+            ? <Map<String, dynamic>>[]
+            : List<Map<String, dynamic>>.from(_community!['members']);
+        final filteredMembers = _memberSearchQuery.isEmpty
+            ? members
+            : members
+                .where((m) => (m['displayName'] as String)
+                    .toLowerCase()
+                    .contains(_memberSearchQuery.toLowerCase()))
+                .toList();
+
         return Scaffold(
             backgroundColor: const Color(0xFFFAF7F2),
             appBar: AppBar(
@@ -200,19 +213,19 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                             icon: const Icon(Icons.person_add_outlined),
                             tooltip: 'Katılım İstekleri',
                         ),
-                        if (_isMember)
-                            IconButton(
-                                onPressed: () {
-                                    Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) => CommunityChatPage(communityId: widget.communityId),
-                                        ),
-                                    );
-                                },
-                                icon: const Icon(Icons.chat_bubble_outline),
-                                tooltip: 'Sohbet',
-                            ),
+                    if (_isMember)
+                        IconButton(
+                            onPressed: () {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => CommunityChatPage(communityId: widget.communityId),
+                                    ),
+                                );
+                            },
+                            icon: const Icon(Icons.chat_bubble_outline),
+                            tooltip: 'Sohbet',
+                        ),
                 ],
             ),
             body: _isLoading
@@ -254,51 +267,123 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                 ),
                                 const SizedBox(height: 16),
                                 if ((_community!['description'] as String).isNotEmpty) ...[
-                                    Text(_community!['description']),
-                                    const SizedBox(height: 16),
+                                    Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.grey.shade300),
+                                        ),
+                                        child: Text(_community!['description']),
+                                    ),
+                                    const SizedBox(height: 12),
                                 ],
-                                _buildActionButton(),
-                                const SizedBox(height: 24),
-                                const Text('Üyeler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-                                const SizedBox(height: 8),
-                                ...List<Map<String, dynamic>>.from(_community!['members']).map((member) {
-                                    return ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: CircleAvatar(
-                                            backgroundColor: const Color(0xFF1A237E),
-                                            backgroundImage: member['profilePictureUrl'] != null
-                                                ? NetworkImage(member['profilePictureUrl'])
-                                                : null,
-                                            child: member['profilePictureUrl'] == null
-                                                ? const Icon(Icons.person, color: Colors.white, size: 18)
-                                                : null,
-                                        ),
-                                        title: Text(member['displayName']),
-                                        trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                            if (member['role'] == 'Admin')
-                                                Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(
-                                                        color: const Color(0xFF1A237E).withOpacity(0.1),
-                                                        borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    child: const Text('Yönetici', style: TextStyle(fontSize: 12, color: Color(0xFF1A237E))),
-                                                    ),
-                                                    if (_isAdmin && member['userId'] != _myUserId)
-                                                    IconButton(
-                                                        onPressed: () => _removeMember(member['userId'], member['displayName']),
-                                                        icon: const Icon(Icons.person_remove_outlined, color: Colors.red, size: 20),
-                                                        tooltip: 'Topluluktan çıkar',
+                                if (_isMember) ...[
+                                    InkWell(
+                                        onTap: () {
+                                            Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                    builder: (context) => CommunityPhotosPage(communityId: widget.communityId),
                                                 ),
-                                        ],
+                                            );
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Row(
+                                                children: const [
+                                                    Icon(Icons.photo_library_outlined, color: Color(0xFF1A237E), size: 20),
+                                                    SizedBox(width: 8),
+                                                    Text('Fotoğraflar', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.w600)),
+                                                    Spacer(),
+                                                    Icon(Icons.chevron_right, color: Color(0xFF1A237E)),
+                                                ],
+                                            ),
                                         ),
-                                    );
-                                }),
+                                    ),
+                                    const SizedBox(height: 24),
+                                ],
+                                Row(
+                                    children: [
+                                        const Text('Üyeler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+                                        const Spacer(),
+                                        Text('${members.length} üye', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                    ],
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                    onChanged: (value) => setState(() => _memberSearchQuery = value),
+                                    decoration: InputDecoration(
+                                        hintText: 'Üye ara...',
+                                        prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade300)),
+                                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1A237E))),
+                                    ),
+                                ),
+                                const SizedBox(height: 8),
+                                if (filteredMembers.isEmpty)
+                                    const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 12),
+                                        child: Text('Aranan üye bulunamadı.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                    )
+                                else
+                                    ...filteredMembers.map((member) {
+                                        return ListTile(
+                                            contentPadding: EdgeInsets.zero,
+                                            leading: CircleAvatar(
+                                                backgroundColor: const Color(0xFF1A237E),
+                                                backgroundImage: member['profilePictureUrl'] != null
+                                                    ? NetworkImage(member['profilePictureUrl'])
+                                                    : null,
+                                                child: member['profilePictureUrl'] == null
+                                                    ? const Icon(Icons.person, color: Colors.white, size: 18)
+                                                    : null,
+                                            ),
+                                            title: Text(member['displayName']),
+                                            trailing: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                    if (member['role'] == 'Admin')
+                                                        Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                            decoration: BoxDecoration(
+                                                                color: const Color(0xFF1A237E).withOpacity(0.1),
+                                                                borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                            child: const Text('Yönetici', style: TextStyle(fontSize: 12, color: Color(0xFF1A237E))),
+                                                        ),
+                                                    if (_isAdmin && member['userId'] != _myUserId)
+                                                        IconButton(
+                                                            onPressed: () => _removeMember(member['userId'], member['displayName']),
+                                                            icon: const Icon(Icons.person_remove_outlined, color: Colors.red, size: 20),
+                                                            tooltip: 'Topluluktan çıkar',
+                                                        ),
+                                                ],
+                                            ),
+                                        );
+                                    }),
+                                const SizedBox(height: 16),
                             ],
                         ),
                     ),
+            bottomNavigationBar: _community == null
+                ? null
+                : SafeArea(
+                    child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildActionButton(),
+                    ),
+                ),
         );
     }
 }

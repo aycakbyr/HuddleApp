@@ -95,6 +95,45 @@ public class UploadController : ControllerBase
       return Ok(new { id = photo.Id, imageUrl});
    }
 
+   //post api/upload/community/{communityId}/photo üyenin topluluğa foto eklemesi
+   [HttpPost("community/{communityId}/photo")]
+   public async Task<IActionResult> UploadCommunityPhoto(Guid communityId, IFormFile file)
+   {
+      var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+      var community = await _context.Communities.FirstOrDefaultAsync(c => c.Id == communityId);
+      if (community == null)
+         return NotFound(new { message = "Topluluk bulunamadı."});
+
+      var isMember = await _context.CommunityMembers
+          .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId);
+      if (!isMember)
+         return Forbid();
+
+      if (file == null || file.Length == 0)
+         return BadRequest(new { message = "Dosya Seçilemedi"});
+
+      var allowedTypes = new[] {"image/jpeg", "image/png", "image/webp"};
+      if (!allowedTypes.Contains(file.ContentType))
+         return BadRequest(new { message = "Sadece JPEG, PNG veya WebP yükleyebilirsiniz."});
+
+      var imageUrl = await _cloudinary.UploadImageAsync(file);
+      if (imageUrl == null)
+         return StatusCode(500, new { message = "Fotoğraf yüklenemedi."});
+      
+      var photo = new CommunityPhoto
+      {
+         CommunityId = communityId,
+         UserId = userId,
+         ImageUrl = imageUrl
+      };
+      _context.CommunityPhotos.Add(photo);
+      await _context.SaveChangesAsync();
+
+      return Ok(new { id = photo.Id, imageUrl});
+
+   }
+
    // post api/upload/profile/photo   kullanıcının doğrudan kendi profiline (bir etkinliğe bağlı olmadan) foto eklemesi
    [HttpPost("profile/photo")]
    public async Task<IActionResult> UploadProfilePhoto(IFormFile file)

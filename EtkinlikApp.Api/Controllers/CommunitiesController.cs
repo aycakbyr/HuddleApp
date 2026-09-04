@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using EtkinlikApp.Api.DTOs;
 using EtkinlikApp.Core.Entities;
@@ -63,6 +64,8 @@ public class CommunitiesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetCommunities()
     {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
         var communities = await _context.Communities
             .Include(c => c.Members) // bu ilişkiyi de ef ile birlikte getir
             .OrderByDescending(c => c.CreatedAt)
@@ -71,7 +74,8 @@ public class CommunitiesController : ControllerBase
                 Id = c.Id,
                 Name = c.Name,
                 ProfilePictureUrl = c.ProfilePictureUrl,
-                MemberCount = c.Members.Count
+                MemberCount = c.Members.Count,
+                IsMember = c.Members.Any(m => m.UserId == userId)
             })
             .ToListAsync();
         
@@ -123,6 +127,36 @@ public class CommunitiesController : ControllerBase
 
         return Ok(dto);
     }
+
+    //api/communities/{id}/photos topluluğa eklenen fotolar
+    [Authorize]
+    [HttpGet("{id}/photos")]
+    public async Task<IActionResult> GetCommunityPhotos(Guid id)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var isMember = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == userId);
+        if (!isMember)
+           return Forbid();
+        
+        var photos = await _context.CommunityPhotos
+            .Include(p => p.User) // sadece üye olanların topluluğun fotolarını görebilmesi
+            .Where(p => p.CommunityId == id)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new CommunityPhotoDto
+            {
+                Id = p.Id,
+                ImageUrl = p.ImageUrl,
+                UserId = p.UserId,
+                UploaderDisplayName = p.User.DisplayName,
+                CreatedAt = p.CreatedAt
+            })
+            .ToListAsync();
+        
+        return Ok(photos);
+    }
+
 
     //api/communities/{id}/join. katılım isteği gönderme
     [Authorize]

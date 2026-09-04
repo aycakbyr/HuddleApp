@@ -15,6 +15,7 @@ public class Community
     public ICollection<CommunityJoinRequest> JoinRequests { get; set; } = new List<CommunityJoinRequest>();
     public ICollection<Event> Events { get; set; } = new List<Event>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
+    public ICollection<CommunityPhoto> Photos { get; set; } = new List<CommunityPhoto>(); //topluluktan paylaşılan fotolar
 //Bu koleksiyonlar sayesinde ileride kod içinde community.Members.Count yazarak üye sayısını, community.Events yazarak paylaştığı etkinlikleri kolayca alabileceğiz
 
 }

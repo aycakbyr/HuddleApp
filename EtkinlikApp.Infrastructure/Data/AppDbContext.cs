@@ -26,6 +26,7 @@ public class AppDbContext : DbContext //inheritance-kalıtım= DbContext kısmı
     public DbSet<Community> Communities => Set<Community>();
     public DbSet<CommunityMember> CommunityMembers => Set<CommunityMember>();
     public DbSet<CommunityJoinRequest> CommunityJoinRequests => Set<CommunityJoinRequest>();
+    public DbSet<CommunityPhoto> CommunityPhotos => Set<CommunityPhoto>();
 
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -141,6 +142,20 @@ public class AppDbContext : DbContext //inheritance-kalıtım= DbContext kısmı
                   .WithMany(u => u.EventPhotos)
                   .HasForeignKey(p => p.UserId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        //community photo (topluluk fotoları)
+        modelBuilder.Entity<CommunityPhoto>(entity =>
+        {
+            entity.HasOne(p => p.Community)
+                  .WithMany(c => c.Photos)
+                  .HasForeignKey(p => p.CommunityId)
+                  .OnDelete(DeleteBehavior.Cascade); //topluluk silinirse fotoları da silinir
+            
+            entity.HasOne(p => p.User)
+                 .WithMany(u => u.CommunityPhotos)
+                 .HasForeignKey(p => p.UserId)
+                 .OnDelete(DeleteBehavior.Restrict);
         });
 
         // rating (etkinlik kurucusuna değerlendirme)

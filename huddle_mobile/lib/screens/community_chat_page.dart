@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/message_service.dart';
+import '../services/community_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
+import 'community_detail_page.dart';
 
 class CommunityChatPage extends StatefulWidget {
     final String communityId;
@@ -14,10 +16,12 @@ class CommunityChatPage extends StatefulWidget {
 
 class _CommunityChatPageState extends State<CommunityChatPage> {
     final _messageService = MessageService();
+    final _communityService = CommunityService();
     final _textController = TextEditingController();
     final _scrollController = ScrollController();
 
     List<Map<String, dynamic>> _messages = [];
+    Map<String, dynamic>? _community;
     String? _myUserId;
     bool _isLoading = true;
     bool _isSending = false;
@@ -39,11 +43,13 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
         setState(() => _isLoading = true);
 
         final me = await AuthService().getMe();
+        final community = await _communityService.getCommunityById(widget.communityId);
         final messages = await _messageService.getMessages(widget.communityId);
 
         if (!mounted) return;
         setState(() {
             _myUserId = me?['id'];
+            _community = community;
             _messages = messages;
             _isLoading = false;
         });
@@ -56,6 +62,15 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
             if (!_scrollController.hasClients) return;
             _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         });
+    }
+
+    void _openCommunityInfo() {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => CommunityDetailPage(communityId: widget.communityId),
+            ),
+        );
     }
 
     Future<void> _send() async {
@@ -86,7 +101,32 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
             appBar: AppBar(
                 backgroundColor: const Color(0xFFFAF7F2),
                 elevation: 0,
-                title: const Text('Sohbet', style: TextStyle(color: Color(0xFF1A237E))),
+                titleSpacing: 0,
+                title: InkWell(
+                    onTap: _openCommunityInfo,
+                    child: Row(
+                        children: [
+                            CircleAvatar(
+                                radius: 16,
+                                backgroundColor: const Color(0xFF1A237E),
+                                backgroundImage: _community?['profilePictureUrl'] != null
+                                    ? NetworkImage(_community!['profilePictureUrl'])
+                                    : null,
+                                child: _community?['profilePictureUrl'] == null
+                                    ? const Icon(Icons.groups, color: Colors.white, size: 16)
+                                    : null,
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                                child: Text(
+                                    _community?['name'] ?? 'Sohbet',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: Color(0xFF1A237E), fontSize: 16, fontWeight: FontWeight.w600),
+                                ),
+                            ),
+                        ],
+                    ),
+                ),
                 iconTheme: const IconThemeData(color: Color(0xFF1A237E)),
             ),
             body: Column(

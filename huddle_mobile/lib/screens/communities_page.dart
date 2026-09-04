@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/community_service.dart';
 import 'create_community_page.dart';
 import 'community_detail_page.dart';
+import 'community_chat_page.dart';
 
 class CommunitiesPage extends StatefulWidget {
     const CommunitiesPage({super.key});
@@ -54,12 +55,19 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
         }
     }
 
-    // topluluk detay sayfasına git 
-    void _openCommunityDetail(String communityId) {
-    Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => CommunityDetailPage(communityId: communityId)),
-    );
+    // üye olunan topluluğa basınca direkt sohbete, üye olunmayana basınca bilgi/katılma sayfasına git
+    void _openCommunity(Map<String, dynamic> community) {
+        if (community['isMember'] == true) {
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CommunityChatPage(communityId: community['id'])),
+            );
+        } else {
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CommunityDetailPage(communityId: community['id'])),
+            );
+        }
     }
 
     @override
@@ -99,59 +107,58 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                                             shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
                                             ),
-                                            child: Padding(
-                                                padding: const EdgeInsets.all(16),
-                                                child: Row(
-                                                    children: [
-                                                        CircleAvatar(
-                                                            radius: 24,
-                                                            backgroundColor: const Color(0xFF1A237E),
-                                                            backgroundImage: community['profilePictureUrl'] != null
-                                                                ? NetworkImage(community['profilePictureUrl'])
-                                                                : null,
-                                                            child: community['profilePictureUrl'] == null
-                                                                ? const Icon(Icons.groups, color: Colors.white)
-                                                                : null,
-                                                        ),
-                                                        const SizedBox(width: 12),
-                                                        Expanded(
-                                                            child: Column(
-                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                children: [
-                                                                    Text(
-                                                                        community['name'],
-                                                                        style: const TextStyle(
-                                                                            fontSize: 16,
-                                                                            fontWeight: FontWeight.bold,
-                                                                            color: Color(0xFF1A237E),
-                                                                        ),
-                                                                    ),
-                                                                    const SizedBox(height: 4),
-                                                                    Row(
-                                                                        children: [
-                                                                            const Icon(Icons.people, size: 14, color: Colors.grey),
-                                                                            const SizedBox(width: 4),
-                                                                            Text(
-                                                                                '${community['memberCount']} üye',
-                                                                                style: const TextStyle(color: Colors.grey, fontSize: 13),
-                                                                            ),
-                                                                        ],
-                                                                    ),
-                                                                ],
-                                                            ),
-                                                        ),
-                                                        TextButton(
-                                                            onPressed: () => _openCommunityDetail(community['id']),
-                                                            style: TextButton.styleFrom(
+                                            child: InkWell(
+                                                borderRadius: BorderRadius.circular(12),
+                                                onTap: () => _openCommunity(community),
+                                                child: Padding(
+                                                    padding: const EdgeInsets.all(16),
+                                                    child: Row(
+                                                        children: [
+                                                            CircleAvatar(
+                                                                radius: 24,
                                                                 backgroundColor: const Color(0xFF1A237E),
-                                                                foregroundColor: Colors.white,
-                                                                shape: RoundedRectangleBorder(
-                                                                    borderRadius: BorderRadius.circular(20),
+                                                                backgroundImage: community['profilePictureUrl'] != null
+                                                                    ? NetworkImage(community['profilePictureUrl'])
+                                                                    : null,
+                                                                child: community['profilePictureUrl'] == null
+                                                                    ? const Icon(Icons.groups, color: Colors.white)
+                                                                    : null,
+                                                            ),
+                                                            const SizedBox(width: 12),
+                                                            Expanded(
+                                                                child: Column(
+                                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                                    children: [
+                                                                        Text(
+                                                                            community['name'],
+                                                                            style: const TextStyle(
+                                                                                fontSize: 16,
+                                                                                fontWeight: FontWeight.bold,
+                                                                                color: Color(0xFF1A237E),
+                                                                            ),
+                                                                        ),
+                                                                        const SizedBox(height: 4),
+                                                                        Row(
+                                                                            children: [
+                                                                                const Icon(Icons.people, size: 14, color: Colors.grey),
+                                                                                const SizedBox(width: 4),
+                                                                                Text(
+                                                                                    '${community['memberCount']} üye',
+                                                                                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                    ],
                                                                 ),
                                                             ),
-                                                            child: const Text('İncele', style: TextStyle(fontSize: 13)),
-                                                        ),
-                                                    ],
+                                                            Icon(
+                                                                community['isMember'] == true
+                                                                    ? Icons.chat_bubble_outline
+                                                                    : Icons.chevron_right,
+                                                                color: Colors.grey,
+                                                            ),
+                                                        ],
+                                                    ),
                                                 ),
                                             ),
                                         );

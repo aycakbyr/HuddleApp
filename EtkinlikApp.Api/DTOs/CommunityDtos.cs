@@ -16,6 +16,7 @@ public class CommunityListDto
     public string Name { get; set; } = string.Empty;
     public string? ProfilePictureUrl { get; set; }
     public int MemberCount { get; set; }
+    public bool IsMember { get; set; } // giriş yapan kullanıcı bu topluluğun üyesi mi
 }
 
 // topluluk bilgileri sayfasında gösterilecek detaylı bilgi
@@ -49,4 +50,14 @@ public class CommunityJoinRequestDto
     public Guid UserId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public DateTime RequestedAt { get; set; }
+}
+
+// topluluk fotoğraf galerisinde her bir fotoğraf için gönderilecek bilgi
+public class CommunityPhotoDto
+{
+    public Guid Id { get; set; }
+    public string ImageUrl { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
+    public string UploaderDisplayName { get; set; } = string.Empty; //kimin yüklediği
+    public DateTime CreatedAt { get; set; }
 }

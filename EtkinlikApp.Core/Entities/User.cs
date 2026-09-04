@@ -26,6 +26,7 @@ public class User
     public ICollection<Rating> RatingsReceived { get; set; } = new List<Rating>(); // etkinlik kurucusu olarak aldığım değerlendirmeler
     public ICollection<Community> CreatedCommunities { get; set; } = new List<Community>(); // oluşturduğum topluluklar
     public ICollection<CommunityMember> CommunityMemberships { get; set; } = new List<CommunityMember>(); //üye olduğum topluluklar
+    public ICollection<CommunityPhoto> CommunityPhotos { get; set; } = new List<CommunityPhoto>(); //topluluğa eklediğim fotolar
     public ICollection<CommunityJoinRequest> CommunityJoinRequests { get; set; } = new List<CommunityJoinRequest>(); // topluluklara gönderdiğim katılım istekleri
     
 }

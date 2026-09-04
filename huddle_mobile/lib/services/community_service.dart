@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:io';
 import 'api_client.dart';
 
 class CommunityService {
@@ -98,6 +99,28 @@ class CommunityService {
             return {'success': true};
         } on DioException catch (e) {
             final message = e.response?.data?['message'] ?? 'Üye çıkarılamadı.';
+            return {'success': false, 'message': message};
+        }
+    }
+
+    //topluluğun fotoğraflarını getirme
+    Future<List<Map<String, dynamic>>> getCommunityPhotos(String communityId) async {
+        final response = await _api.dio.get('/communities/$communityId/photos');
+        return List<Map<String, dynamic>>.from(response.data);
+    }
+
+    //topluluğa foto yükleme
+    Future<Map<String, dynamic>> uploadCommunityPhoto(String communityId, File imageFile) async {
+        try{
+            final fileName = imageFile.path.split('/').last;
+            final formData = FormData.fromMap({
+                'file': await MultipartFile.fromFile(imageFile.path, filename: fileName),
+            });
+
+            final response = await _api.dio.post('/upload/community/$communityId/photo', data:formData);
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Fotoğraf yüklenemedi.';
             return {'success': false, 'message': message};
         }
     }
