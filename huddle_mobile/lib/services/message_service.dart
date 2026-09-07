@@ -11,11 +11,11 @@ class MessageService {
     }
 
     //topluluğa yeni mesaj gönderir
-    Future<Map<String, dynamic>> sendMessage(String communityId, String content) async {
+    Future<Map<String, dynamic>> sendMessage(String communityId, String content, {bool isAnnouncement = false}) async {
         try{
             final response = await _api.dio.post(
                 '/communities/$communityId/messages',
-                data: {'content': content},
+                data: {'content': content, 'isAnnouncement': isAnnouncement }, //isimli, isteğe bağlı parametreler
             );
             return {'success': true, 'data': response.data};
         } on DioException catch (e) {

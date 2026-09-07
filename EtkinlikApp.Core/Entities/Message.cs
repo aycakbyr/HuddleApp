@@ -11,4 +11,5 @@ public class Message
     public User Sender { get; set;} = null!;
     public string Content { get; set; } = string.Empty; //Content → mesajın kendisi (yazılan metin)
     public DateTime SentAt { get; set; } = DateTime.UtcNow; //SentAt → gönderilme zamanı, yine otomatik dolduruluyor, tıpkı diğer CreatedAt/RequestedAt alanlarında yaptığımız gibi
+    public bool IsAnnouncement { get; set; } = false; // true ise bu sohbet mesajı değil yöneticinin duyurusu
 }

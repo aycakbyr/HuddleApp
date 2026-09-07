@@ -25,6 +25,7 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
     String? _myUserId;
     bool _isLoading = true;
     bool _isSending = false;
+    bool _isAnnouncement = false; // + butonuna basınca true olur mesaj duyuru olarak gönderilir
 
     @override
     void initState() {
@@ -73,12 +74,20 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
         );
     }
 
+    bool get _isAdmin {
+        if (_community == null || _myUserId == null) return false;
+        final members = List<Map<String, dynamic>>.from(_community!['members']);
+        final me = members.where((m) => m['userId'] == _myUserId);
+        if (me.isEmpty) return false;
+           return me.first['role'] == 'Admin';
+    }
+
     Future<void> _send() async {
         final content = _textController.text.trim();
         if (content.isEmpty) return;
 
         setState(() => _isSending = true);
-        final result = await _messageService.sendMessage(widget.communityId, content);
+        final result = await _messageService.sendMessage(widget.communityId, content, isAnnouncement: _isAnnouncement);
         if (!mounted) return;
         setState(() => _isSending = false);
 
@@ -90,6 +99,7 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
         setState(() {
             _messages.add(Map<String, dynamic>.from(result['data']));
             _textController.clear();
+            _isAnnouncement = false; //bir sonraki mesaj otomatik normale döner 
         });
         _scrollToBottom();
     }
@@ -143,6 +153,41 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                     itemBuilder: (context, index) {
                                         final message = _messages[index];
                                         final isMe = message['senderId'] == _myUserId;
+                                        final isAnnouncement = message['isAnnouncement'] == true;
+
+                                        if (isAnnouncement) {
+                                            return Align(
+                                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                                child: Container(
+                                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                                                    decoration: BoxDecoration(
+                                                        color: Colors.amber.shade100,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: Colors.amber.shade300),
+                                                    ),
+                                                    child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                            Row(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                    const Icon(Icons.campaign, size: 14, color: Colors.orange),
+                                                                    const SizedBox(width: 4),
+                                                                    Text(
+                                                                        message['senderDisplayName'],
+                                                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                                                                    ),
+                                                                ],
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            Text(message['content'], style: const TextStyle(color: Colors.black87)),
+                                                        ],
+                                                    ),
+                                                ),
+                                            );
+                                        }
 
                                         return Align(
                                             alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -175,32 +220,63 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                     ),
                     SafeArea(
                         top: false,
-                        child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Row(
-                                children: [
-                                    Expanded(
-                                        child: TextField(
-                                            controller: _textController,
-                                            decoration: InputDecoration(
-                                                hintText: 'Mesaj yaz...',
-                                                filled: true,
-                                                fillColor: Colors.white,
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                                border: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(24),
-                                                    borderSide: BorderSide.none,
+                        child: Column(
+                            children: [
+                                if (_isAnnouncement)
+                                   Container(
+                                    width: double.infinity,
+                                    color: Colors.amber.shade100,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    child: Row(
+                                        children: [
+                                            const Icon(Icons.campaign, size: 16, color: Colors.orange),
+                                            const SizedBox(width: 6),
+                                            const Expanded(
+                                                child: Text('Duyuru olarak gönderilecek', style: TextStyle(fontSize: 12, color: Colors.orange)),
+                                            ),
+                                            GestureDetector(
+                                                onTap: () => setState(() => _isAnnouncement = false),
+                                                child: const Icon(Icons.close, size: 16, color: Colors.orange),
+                                            ),
+                                        ],
+                                    ),
+                                ),
+                                Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Row(
+                                        children: [
+                                            if (_isAdmin)
+                                               IconButton(
+                                                onPressed: () => setState(() => _isAnnouncement = !_isAnnouncement),
+                                                icon: Icon(
+                                                    Icons.campaign,
+                                                    color: _isAnnouncement ? Colors.orange : Colors.grey,
                                                 ),
                                             ),
-                                        ),
+                                            Expanded(
+                                                child: TextField(
+                                                    controller: _textController,
+                                                    decoration: InputDecoration(
+                                                        hintText: 'Mesaj yaz...',
+                                                        filled: true,
+                                                        fillColor: Colors.white,
+                                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                        border: OutlineInputBorder(
+                                                            borderRadius: BorderRadius.circular(24),
+                                                            borderSide: BorderSide.none,
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                                onPressed: _isSending ? null : _send,
+                                                icon: const Icon(Icons.send, color: Color(0xFF1A237E)),
+                                            ),
+                                        ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                        onPressed: _isSending ? null : _send,
-                                        icon: const Icon(Icons.send, color: Color(0xFF1A237E)),
-                                    ),
-                                ],
-                            ),
+                                ),
+                            ],
                         ),
                     ),
                 ],

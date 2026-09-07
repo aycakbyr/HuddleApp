@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using EtkinlikApp.Api.DTOs;
 using EtkinlikApp.Core.Entities;
+using EtkinlikApp.Core.Enums;
 using EtkinlikApp.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -40,7 +41,8 @@ public class MessagesController : ControllerBase
                 SentAt = m.SentAt,
                 SenderId = m.SenderId,
                 SenderDisplayName = m.Sender.DisplayName,
-                SenderProfilePictureUrl = m.Sender.ProfilePictureUrl
+                SenderProfilePictureUrl = m.Sender.ProfilePictureUrl,
+                IsAnnouncement = m.IsAnnouncement
             })
             .ToListAsync();
 
@@ -59,6 +61,14 @@ public class MessagesController : ControllerBase
         if (!isMember)
             return Forbid();
 
+        if (dto.IsAnnouncement)
+        {
+            var isAdmin = await _context.CommunityMembers
+                .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId && m.Role == CommunityRole.Admin);
+            if (!isAdmin)
+               return Forbid();
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Content))
             return BadRequest(new { message = "Mesaj boş olamaz." });
 
@@ -67,7 +77,9 @@ public class MessagesController : ControllerBase
             CommunityId = communityId,
             SenderId = userId,
             Content = dto.Content,
-            SentAt = DateTime.UtcNow
+            IsAnnouncement = dto.IsAnnouncement,
+            SentAt = DateTime.UtcNow,
+            
         };
 
         _context.Messages.Add(message);
@@ -82,7 +94,9 @@ public class MessagesController : ControllerBase
             SentAt = message.SentAt,
             SenderId = userId,
             SenderDisplayName = sender!.DisplayName,
-            SenderProfilePictureUrl = sender.ProfilePictureUrl
+            SenderProfilePictureUrl = sender.ProfilePictureUrl,
+            IsAnnouncement = message.IsAnnouncement
+            
         };
 
         return Ok(result);
