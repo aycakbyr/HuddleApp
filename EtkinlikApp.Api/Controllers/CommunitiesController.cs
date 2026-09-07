@@ -327,4 +327,80 @@ public class CommunitiesController : ControllerBase
         return Ok(new { message = approve ? "İstek onaylandı." : "İstek reddedildi."});
     }
 
+    // api/communities/{id}/members/search?query=...  yöneticinin direkt ekleyebileceği kullanıcıları arar
+    [Authorize]
+    [HttpGet("{id}/members/search")]
+    public async Task<IActionResult> SearchUsersToAdd(Guid id, [FromQuery] string query)
+    {
+        var adminId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var isAdmin = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == adminId && m.Role == CommunityRole.Admin);
+        if (!isAdmin)
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(query))
+            return Ok(new List<UserSearchResultDto>());
+
+        var existingMemberIds = await _context.CommunityMembers
+            .Where(m => m.CommunityId == id)
+            .Select(m => m.UserId)
+            .ToListAsync();
+
+        var results = await _context.Users
+            .Where(u => !existingMemberIds.Contains(u.Id))
+            .Where(u => u.DisplayName.ToLower().Contains(query.ToLower())
+                || (u.Username != null && u.Username.ToLower().Contains(query.ToLower())))
+            .Take(20)
+            .Select(u => new UserSearchResultDto
+            {
+                Id = u.Id,
+                DisplayName = u.DisplayName,
+                Username = u.Username ?? string.Empty,
+                ProfilePictureUrl = u.ProfilePictureUrl
+            })
+            .ToListAsync();
+
+        return Ok(results);
+    }
+
+    // api/communities/{id}/members  yönetici bir kullanıcıyı istek olmadan direkt üye yapar
+    [Authorize]
+    [HttpPost("{id}/members")]
+    public async Task<IActionResult> AddMemberDirectly(Guid id, AddMemberDto dto)
+    {
+        var adminId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var isAdmin = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == adminId && m.Role == CommunityRole.Admin);
+        if (!isAdmin)
+            return Forbid();
+
+        var targetExists = await _context.Users.AnyAsync(u => u.Id == dto.UserId);
+        if (!targetExists)
+            return NotFound(new { message = "Kullanıcı bulunamadı."});
+
+        var alreadyMember = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == dto.UserId);
+        if (alreadyMember)
+            return BadRequest(new { message = "Bu kullanıcı zaten üye."});
+
+        _context.CommunityMembers.Add(new CommunityMember
+        {
+            CommunityId = id,
+            UserId = dto.UserId,
+            Role = CommunityRole.Member,
+        });
+
+        // varsa bekleyen katılım isteğini de temizleyelim
+        var pendingRequest = await _context.CommunityJoinRequests
+            .FirstOrDefaultAsync(r => r.CommunityId == id && r.UserId == dto.UserId);
+        if (pendingRequest != null)
+            _context.CommunityJoinRequests.Remove(pendingRequest);
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Üye eklendi."});
+    }
+
 }

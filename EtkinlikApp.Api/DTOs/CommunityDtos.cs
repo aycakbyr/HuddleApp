@@ -61,3 +61,17 @@ public class CommunityPhotoDto
     public string UploaderDisplayName { get; set; } = string.Empty; //kimin yüklediği
     public DateTime CreatedAt { get; set; }
 }
+// hızlı üye ekleme için kullanıcı arama sonucunda dönen özet bilgi
+public class UserSearchResultDto
+{
+    public Guid Id { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string? ProfilePictureUrl { get; set; }
+}
+
+// yöneticinin bir kullanıcıyı istek olmadan direkt üye yapması için
+public class AddMemberDto
+{
+    public Guid UserId { get; set; }
+}

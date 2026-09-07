@@ -124,4 +124,28 @@ class CommunityService {
             return {'success': false, 'message': message};
         }
     }
+
+    //yönetici için: direkt eklenebilecek kullanıcıları arar
+    Future<List<Map<String, dynamic>>> searchUsersToAdd(String communityId, String query) async {
+        try {
+            final response = await _api.dio.get(
+                '/communities/$communityId/members/search',
+                queryParameters: {'query': query},
+            );
+            return List<Map<String, dynamic>>.from(response.data);
+        } on DioException {
+            return [];
+        }
+    }
+
+    //yönetici bir kullanıcıyı istek olmadan direkt üye yapar
+    Future<Map<String, dynamic>> addMember(String communityId, String userId) async {
+        try{
+            await _api.dio.post('/communities/$communityId/members', data: {'userId': userId});
+            return {'success': true};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Üye eklenemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
 }

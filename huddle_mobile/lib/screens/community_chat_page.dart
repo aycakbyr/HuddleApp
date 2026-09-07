@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/message_service.dart';
 import '../services/community_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
 import 'community_detail_page.dart';
+import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class CommunityChatPage extends StatefulWidget {
     final String communityId;
@@ -26,6 +29,9 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
     bool _isLoading = true;
     bool _isSending = false;
     bool _isAnnouncement = false; // + butonuna basınca true olur mesaj duyuru olarak gönderilir
+    final _storage = const FlutterSecureStorage();
+    String? _wallpaperPath;
+    Set<String> _starredIds = {};
 
     @override
     void initState() {
@@ -46,12 +52,17 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
         final me = await AuthService().getMe();
         final community = await _communityService.getCommunityById(widget.communityId);
         final messages = await _messageService.getMessages(widget.communityId);
+        final wallpaperPath = await _storage.read(key: 'wallpaper_${widget.communityId}');
+        final starredRaw = await _storage.read(key: 'starred_${widget.communityId}');
+        final starredIds = starredRaw == null ? <String>{} : Set<String>.from(jsonDecode(starredRaw));
 
         if (!mounted) return;
         setState(() {
             _myUserId = me?['id'];
             _community = community;
             _messages = messages;
+            _wallpaperPath = wallpaperPath;
+            _starredIds = starredIds;
             _isLoading = false;
         });
 
@@ -63,6 +74,17 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
             if (!_scrollController.hasClients) return;
             _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         });
+    }
+
+    Future<void> _toggleStar(String messageId) async {
+        setState(() {
+            if (_starredIds.contains(messageId)) {
+                _starredIds.remove(messageId);
+            } else {
+                _starredIds.add(messageId);
+            }
+        });
+        await _storage.write(key: 'starred_${widget.communityId}', value: jsonEncode(_starredIds.toList()));
     }
 
     void _openCommunityInfo() {
@@ -139,8 +161,19 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                 ),
                 iconTheme: const IconThemeData(color: Color(0xFF1A237E)),
             ),
-            body: Column(
-                children: [
+            body: Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: (_wallpaperPath != null && File(_wallpaperPath!).existsSync())
+                    ? BoxDecoration(
+                        image: DecorationImage(
+                            image: FileImage(File(_wallpaperPath!)),
+                            fit: BoxFit.cover,
+                        ),
+                    )
+                    : null,
+                child: Column(
+                    children: [
                     Expanded(
                         child: _isLoading
                             ? const Center(child: CircularProgressIndicator())
@@ -154,74 +187,93 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                         final message = _messages[index];
                                         final isMe = message['senderId'] == _myUserId;
                                         final isAnnouncement = message['isAnnouncement'] == true;
+                                        final isStarred = _starredIds.contains(message['id']);
 
                                         if (isAnnouncement) {
-                                            return Align(
+                                            return GestureDetector(
+                                                onLongPress: () => _toggleStar(message['id']),
+                                                child: Align(
+                                                    alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                                    child: Container(
+                                                        margin: const EdgeInsets.symmetric(vertical: 4),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                                                        decoration: BoxDecoration(
+                                                            color: Colors.amber.shade100,
+                                                            borderRadius: BorderRadius.circular(12),
+                                                            border: Border.all(color: Colors.amber.shade300),
+                                                        ),
+                                                        child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            children: [
+                                                                Row(
+                                                                    mainAxisSize: MainAxisSize.min,
+                                                                    children: [
+                                                                        const Icon(Icons.campaign, size: 14, color: Colors.orange),
+                                                                        const SizedBox(width: 4),
+                                                                        Text(
+                                                                            message['senderDisplayName'],
+                                                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                                                                        ),
+                                                                    ],
+                                                                ),
+                                                                const SizedBox(height: 4),
+                                                                Text(message['content'], style: const TextStyle(color: Colors.black87)),
+                                                                if (isStarred)
+                                                                    const Padding(
+                                                                        padding: EdgeInsets.only(top: 4),
+                                                                        child: Icon(Icons.star, size: 12, color: Colors.orange),
+                                                                    ),
+                                                            ],
+                                                        ),
+                                                    ),
+                                                ),
+                                            );
+                                        }
+
+                                        return GestureDetector(
+                                            onLongPress: () => _toggleStar(message['id']),
+                                            child: Align(
                                                 alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                                                 child: Container(
                                                     margin: const EdgeInsets.symmetric(vertical: 4),
                                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                                     constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
                                                     decoration: BoxDecoration(
-                                                        color: Colors.amber.shade100,
+                                                        color: isMe ? const Color(0xFF1A237E) : Colors.white,
                                                         borderRadius: BorderRadius.circular(12),
-                                                        border: Border.all(color: Colors.amber.shade300),
                                                     ),
                                                     child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                            Row(
-                                                                mainAxisSize: MainAxisSize.min,
-                                                                children: [
-                                                                    const Icon(Icons.campaign, size: 14, color: Colors.orange),
-                                                                    const SizedBox(width: 4),
-                                                                    Text(
-                                                                        message['senderDisplayName'],
-                                                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
-                                                                    ),
-                                                                ],
+                                                            if (!isMe)
+                                                                Text(
+                                                                    message['senderDisplayName'],
+                                                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+                                                                ),
+                                                            Text(
+                                                                message['content'],
+                                                                style: TextStyle(color: isMe ? Colors.white : Colors.black87),
                                                             ),
-                                                            const SizedBox(height: 4),
-                                                            Text(message['content'], style: const TextStyle(color: Colors.black87)),
+                                                            if (isStarred)
+                                                                Padding(
+                                                                    padding: const EdgeInsets.only(top: 4),
+                                                                    child: Icon(Icons.star, size: 12, color: isMe ? Colors.white : Colors.orange),
+                                                                ),
                                                         ],
                                                     ),
-                                                ),
-                                            );
-                                        }
-
-                                        return Align(
-                                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                            child: Container(
-                                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                                                decoration: BoxDecoration(
-                                                    color: isMe ? const Color(0xFF1A237E) : Colors.white,
-                                                    borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                        if (!isMe)
-                                                            Text(
-                                                                message['senderDisplayName'],
-                                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
-                                                            ),
-                                                        Text(
-                                                            message['content'],
-                                                            style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-                                                        ),
-                                                    ],
                                                 ),
                                             ),
                                         );
                                     },
                                 ),
                     ),
-                    SafeArea(
-                        top: false,
-                        child: Column(
-                            children: [
+                    Container(
+                        color: const Color(0xFFFAF7F2),
+                        child: SafeArea(
+                            top: false,
+                            child: Column(
+                                children: [
                                 if (_isAnnouncement)
                                    Container(
                                     width: double.infinity,
@@ -279,7 +331,9 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                             ],
                         ),
                     ),
+                    ),
                 ],
+            ),
             ),
         );
     }

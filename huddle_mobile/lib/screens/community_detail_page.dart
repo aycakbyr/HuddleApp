@@ -5,6 +5,13 @@ import '../utils/snackbar_helper.dart';
 import 'community_requests_page.dart';
 import 'community_chat_page.dart';
 import 'community_photos_page.dart';
+import 'community_announcements_page.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'community_starred_page.dart';
+import 'community_add_member_page.dart';
 
 class CommunityDetailPage extends StatefulWidget {
     final String communityId;
@@ -23,6 +30,8 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
     bool _isActionLoading = false;
     bool _hasPendingRequest = false; // sadece bu oturumda istek gönderildiyse true olur
     String _memberSearchQuery = ''; // üye arama kutusuna yazılan metin
+    final _picker = ImagePicker();
+    final _storage = const FlutterSecureStorage();
 
     @override
     void initState() {
@@ -42,6 +51,20 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
             _community = community;
             _isLoading = false;
         });
+    }
+
+    Future<void> _pickWallpaper() async {
+        final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+        if (picked == null) return;
+
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = 'wallpaper_${widget.communityId}.jpg';
+        final savedImage = await File(picked.path).copy('${appDir.path}/$fileName');
+
+        await _storage.write(key: 'wallpaper_${widget.communityId}', value: savedImage.path);
+
+        if (!mounted) return;
+        showAppSnackBar(context, 'Duvar kağıdı ayarlandı.');
     }
 
     bool get _isMember {
@@ -310,6 +333,121 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                         ),
                                     ),
                                     const SizedBox(height: 24),
+                                    InkWell(
+                                        onTap: () {
+                                            Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                    builder: (context) => CommunityAnnouncementsPage(communityId: widget.communityId),
+                                                ),
+                                            );
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Row(
+                                                children: const [
+                                                    Icon(Icons.campaign_outlined, color: Color(0xFF1A237E), size: 20),
+                                                    SizedBox(width: 8),
+                                                    Text('Duyurular', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.w600)),
+                                                    Spacer(),
+                                                    Icon(Icons.chevron_right, color: Color(0xFF1A237E)),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    InkWell(
+                                        onTap: _pickWallpaper,
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Row(
+                                                children: const [
+                                                    Icon(Icons.wallpaper, color: Color(0xFF1A237E), size: 20),
+                                                    SizedBox(width: 8),
+                                                    Text('Duvar Kağıdı', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.w600)),
+                                                    Spacer(),
+                                                    Icon(Icons.chevron_right, color: Color(0xFF1A237E)),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    InkWell(
+                                        onTap: () {
+                                            Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                    builder: (context) => CommunityStarredPage(communityId: widget.communityId),
+                                                ),
+                                            );
+                                        },
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: Colors.grey.shade300),
+                                            ),
+                                            child: Row(
+                                                children: const [
+                                                    Icon(Icons.star_outline, color: Color(0xFF1A237E), size: 20),
+                                                    SizedBox(width: 8),
+                                                    Text('Yıldızlı', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.w600)),
+                                                    Spacer(),
+                                                    Icon(Icons.chevron_right, color: Color(0xFF1A237E)),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    if (_isAdmin) ...[
+                                        InkWell(
+                                            onTap: () {
+                                                Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (context) => CommunityAddMemberPage(communityId: widget.communityId),
+                                                    ),
+                                                );
+                                            },
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                                decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(12),
+                                                    border: Border.all(color: Colors.grey.shade300),
+                                                ),
+                                                child: Row(
+                                                    children: const [
+                                                        Icon(Icons.person_add_outlined, color: Color(0xFF1A237E), size: 20),
+                                                        SizedBox(width: 8),
+                                                        Text('Üye Ekle', style: TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.w600)),
+                                                        Spacer(),
+                                                        Icon(Icons.chevron_right, color: Color(0xFF1A237E)),
+                                                    ],
+                                                ),
+                                            ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                    ],
                                 ],
                                 Row(
                                     children: [
