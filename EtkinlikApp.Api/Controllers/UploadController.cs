@@ -134,6 +134,38 @@ public class UploadController : ControllerBase
 
    }
 
+   //post api/upload/community/{communityId}/picture yöneticinin topluluk pp değiştirmesi
+   [HttpPost("community/{communityId}/picture")]
+   public async Task<IActionResult> UploadCommunityPicture(Guid communityId, IFormFile file)
+   {
+      var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+      var community = await _context.Communities.FirstOrDefaultAsync(c => c.Id == communityId);
+      if (community == null)
+         return NotFound(new { message = "Topluluk bulunamadı."});
+      
+      var isAdmin = await _context.CommunityMembers
+         .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId && m.Role == CommunityRole.Admin);
+      if (!isAdmin)
+         return Forbid();
+      
+      if (file == null || file.Length == 0)
+         return BadRequest(new { message = "Dosya seçilemedi."});
+      
+      var allowedTypes = new[] {"image/jpeg", "image/png", "image/webp"};
+      if (!allowedTypes.Contains(file.ContentType))
+         return BadRequest(new { message = "Sadece JPEG, PNG veya WebP yükleyebilirsiniz."});
+
+      var imageUrl = await _cloudinary.UploadImageAsync(file);
+      if (imageUrl == null)
+         return StatusCode(500, new { message = "Fotoğraf yüklenemedi."});
+      
+      community.ProfilePictureUrl = imageUrl;
+      await _context.SaveChangesAsync();
+
+      return Ok(new { imageUrl });
+   } 
+
    // post api/upload/profile/photo   kullanıcının doğrudan kendi profiline (bir etkinliğe bağlı olmadan) foto eklemesi
    [HttpPost("profile/photo")]
    public async Task<IActionResult> UploadProfilePhoto(IFormFile file)

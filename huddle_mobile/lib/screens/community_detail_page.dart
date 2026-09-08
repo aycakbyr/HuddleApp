@@ -32,6 +32,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
     String _memberSearchQuery = ''; // üye arama kutusuna yazılan metin
     final _picker = ImagePicker();
     final _storage = const FlutterSecureStorage();
+    bool _isUploadingPicture = false;
 
     @override
     void initState() {
@@ -65,6 +66,22 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
 
         if (!mounted) return;
         showAppSnackBar(context, 'Duvar kağıdı ayarlandı.');
+    }
+    
+    Future<void> _pickCommunityPicture() async {
+        final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+        if (picked == null) return;
+
+        setState(() => _isUploadingPicture = true);
+        final result = await _communityService.updateCommunityPicture(widget.communityId, File(picked.path));
+        if (!mounted) return;
+        setState(() => _isUploadingPicture = false);
+
+        if (result['success'] == true) {
+            _loadData();
+        } else {
+            showAppSnackBar(context, result['message'], color: Colors.red);
+        }
     }
 
     bool get _isMember {
@@ -261,15 +278,42 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                                 Center(
-                                    child: CircleAvatar(
-                                        radius: 40,
-                                        backgroundColor: const Color(0xFF1A237E),
-                                        backgroundImage: _community!['profilePictureUrl'] != null
-                                            ? NetworkImage(_community!['profilePictureUrl'])
-                                            : null,
-                                        child: _community!['profilePictureUrl'] == null
-                                            ? const Icon(Icons.groups, color: Colors.white, size: 36)
-                                            : null,
+                                    child: GestureDetector(
+                                        onTap: _isAdmin ? _pickCommunityPicture : null,
+                                        child: Stack(
+                                            children: [
+                                                CircleAvatar(
+                                                    radius: 40,
+                                                    backgroundColor: const Color(0xFF1A237E),
+                                                    backgroundImage: _community!['profilePictureUrl'] != null
+                                                        ? NetworkImage(_community!['profilePictureUrl'])
+                                                        : null,
+                                                    child: _community!['profilePictureUrl'] == null
+                                                        ? const Icon(Icons.groups, color: Colors.white, size: 36)
+                                                        : null,
+                                                ),
+                                                if (_isAdmin)
+                                                    Positioned(
+                                                        bottom: 0,
+                                                        right: 0,
+                                                        child: Container(
+                                                            padding: const EdgeInsets.all(4),
+                                                            decoration: BoxDecoration(
+                                                                color: const Color(0xFF1A237E),
+                                                                shape: BoxShape.circle,
+                                                                border: Border.all(color: Colors.white, width: 2),
+                                                            ),
+                                                            child: _isUploadingPicture
+                                                                ? const SizedBox(
+                                                                    height: 14,
+                                                                    width: 14,
+                                                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                                                )
+                                                                : const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                                                        ),
+                                                    ),
+                                            ],
+                                        ),
                                     ),
                                 ),
                                 const SizedBox(height: 12),

@@ -125,6 +125,22 @@ class CommunityService {
         }
     }
 
+    //yönetici topluluğun pp değiştirir
+    Future<Map<String, dynamic>> updateCommunityPicture(String communityId, File imageFile) async {
+        try {
+            final fileName = imageFile.path.split('/').last;
+            final formData = FormData.fromMap({
+                'file': await MultipartFile.fromFile(imageFile.path, filename: fileName),
+            });
+
+            final response = await _api.dio.post('/upload/community/$communityId/picture', data: formData);
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Fotoğraf yüklenemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
+
     //yönetici için: direkt eklenebilecek kullanıcıları arar
     Future<List<Map<String, dynamic>>> searchUsersToAdd(String communityId, String query) async {
         try {
