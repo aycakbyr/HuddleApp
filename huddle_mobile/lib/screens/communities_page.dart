@@ -3,6 +3,9 @@ import '../services/community_service.dart';
 import 'create_community_page.dart';
 import 'community_detail_page.dart';
 import 'community_chat_page.dart';
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'community_archived_page.dart';
 
 class CommunitiesPage extends StatefulWidget {
     const CommunitiesPage({super.key});
@@ -16,11 +19,14 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
     List<Map<String, dynamic>> _communities = [];
     bool _isLoading = true;
     String? _errorMessage;
+    final _storage = const FlutterSecureStorage();
+    Set<String> _archivedIds = {};
 
     @override
     void initState() {
         super.initState();
         _loadCommunities();
+        _loadArchivedIds();
     }
 
     Future<void> _loadCommunities() async {
@@ -42,6 +48,24 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                 _isLoading = false;
             });
         }
+    }
+
+    Future<void> _loadArchivedIds() async {
+        final raw = await _storage.read(key: 'archived_communities');
+        final ids = raw == null ? <String>{} : Set<String>.from(jsonDecode(raw));
+        if (!mounted) return;
+        setState(() => _archivedIds = ids);
+    }
+
+    Future<void> _toggleArchive(String communityId) async {
+        setState(() {
+            if (_archivedIds.contains(communityId)) {
+                _archivedIds.remove(communityId);
+            } else {
+                _archivedIds.add(communityId);
+            }
+        });
+        await _storage.write(key: 'archived_communities', value: jsonEncode(_archivedIds.toList()));
     }
 
     Future<void> _openCreateCommunity() async {
@@ -72,6 +96,7 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
 
     @override
     Widget build(BuildContext context) {
+        final visibleCommunities = _communities.where((c) => !_archivedIds.contains(c['id'])).toList();
         return Column(
             children: [
                 Padding(
@@ -90,18 +115,37 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                         ),
                     ),
                 ),
+                if (_archivedIds.isNotEmpty)
+                    Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: InkWell(
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const CommunityArchivedPage()),
+                            ),
+                            child: Row(
+                                children: [
+                                    const Icon(Icons.archive_outlined, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Text('Arşivlenenler (${_archivedIds.length})', style: const TextStyle(color: Colors.grey)),
+                                    const Spacer(),
+                                    const Icon(Icons.chevron_right, color: Colors.grey),
+                                ],
+                            ),
+                        ),
+                    ),
                 Expanded(
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : _errorMessage != null
                             ? Center(child: Text(_errorMessage!))
-                            : _communities.isEmpty
+                            : visibleCommunities.isEmpty
                                 ? const Center(child: Text('Henüz topluluk yok.'))
                                 : ListView.builder(
                                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    itemCount: _communities.length,
+                                    itemCount: visibleCommunities.length,
                                     itemBuilder: (context, index) {
-                                        final community = _communities[index];
+                                        final community = visibleCommunities[index];
                                         return Card(
                                             margin: const EdgeInsets.only(bottom: 12),
                                             shape: RoundedRectangleBorder(
@@ -157,6 +201,11 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
                                                                     : Icons.chevron_right,
                                                                 color: Colors.grey,
                                                             ),
+                                                            IconButton(
+                                                                onPressed: () => _toggleArchive(community['id']),
+                                                                icon: const Icon(Icons.archive_outlined, color: Colors.grey, size: 20),
+                                                                tooltip: 'Arşivle',
+                                                            ),
                                                         ],
                                                     ),
                                                 ),
@@ -168,4 +217,5 @@ class _CommunitiesPageState extends State<CommunitiesPage> {
             ],
         );
     }
+
 }

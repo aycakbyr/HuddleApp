@@ -266,7 +266,7 @@ class _HomePageState extends State<HomePage> {
                         label: 'Topluluklar',
                     ),
                     const BottomNavigationBarItem(
-                        icon: Icon(Icons.chat_bubble_outline),
+                        icon: Icon(Icons.),
                         activeIcon: Icon(Icons.chat_bubble),
                         label: 'Sohbet',
                     ),
