@@ -87,6 +87,58 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
         await _storage.write(key: 'starred_${widget.communityId}', value: jsonEncode(_starredIds.toList()));
     }
 
+        void _showMessageOptions(Map<String, dynamic> message) {
+        if (message['isDeleted'] == true) return; //silinmiş mesajda menü açılmasın
+
+        final isStarred = _starredIds.contains(message['id']);
+        final canDelete = message['senderId'] == _myUserId || _isAdmin;
+
+        showModalBottomSheet(
+            context: context,
+            builder: (context) => SafeArea(
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                        ListTile(
+                            leading: Icon(isStarred ? Icons.star : Icons.star_border, color: Colors.orange),
+                            title: Text(isStarred ? 'Yıldızı Kaldır' : 'Yıldızla'),
+                            onTap: () {
+                                Navigator.pop(context);
+                                _toggleStar(message['id']);
+                            },
+                        ),
+                        if (canDelete)
+                            ListTile(
+                                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                                title: const Text('Sil', style: TextStyle(color: Colors.red)),
+                                onTap: () {
+                                    Navigator.pop(context);
+                                    _deleteMessage(message['id']);
+                                },
+                            ),
+                    ],
+                ),
+            ),
+        );
+    }
+
+    Future<void> _deleteMessage(String messageId) async {
+        final result = await _messageService.deleteMessage(widget.communityId, messageId);
+        if (!mounted) return;
+
+        if (result['success'] == true) {
+            setState(() {
+                final index = _messages.indexWhere((m) => m['id'] == messageId);
+                if (index != -1) {
+                    _messages[index]['isDeleted'] = true;
+                    _messages[index]['content'] = '';
+                }
+            });
+        } else {
+            showAppSnackBar(context, result['message'], color: Colors.red);
+        }
+    }
+
     void _openCommunityInfo() {
         Navigator.push(
             context,
@@ -191,7 +243,7 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
 
                                         if (isAnnouncement) {
                                             return GestureDetector(
-                                                onLongPress: () => _toggleStar(message['id']),
+                                                onLongPress: () => _showMessageOptions(message),
                                                 child: Align(
                                                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                                                     child: Container(
@@ -218,7 +270,9 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                                                     ],
                                                                 ),
                                                                 const SizedBox(height: 4),
-                                                                Text(message['content'], style: const TextStyle(color: Colors.black87)),
+                                                                message['isDeleted'] == true
+                                                                    ? const Text('Bu mesaj silindi', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
+                                                                    : Text(message['content'], style: const TextStyle(color: Colors.black87)),
                                                                 if (isStarred)
                                                                     const Padding(
                                                                         padding: EdgeInsets.only(top: 4),
@@ -232,7 +286,7 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                         }
 
                                         return GestureDetector(
-                                            onLongPress: () => _toggleStar(message['id']),
+                                            onLongPress: () => _showMessageOptions(message),
                                             child: Align(
                                                 alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                                                 child: Container(
@@ -251,10 +305,9 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                                                     message['senderDisplayName'],
                                                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
                                                                 ),
-                                                            Text(
-                                                                message['content'],
-                                                                style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-                                                            ),
+                                                            message['isDeleted'] == true
+                                                                ? Text('Bu mesaj silindi', style: TextStyle(color: isMe ? Colors.white70 : Colors.grey, fontStyle: FontStyle.italic))
+                                                                : Text(message['content'], style: TextStyle(color: isMe ? Colors.white : Colors.black87)),
                                                             if (isStarred)
                                                                 Padding(
                                                                     padding: const EdgeInsets.only(top: 4),

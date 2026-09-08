@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using EtkinlikApp.Api.DTOs;
 using EtkinlikApp.Core.Entities;
@@ -37,12 +38,13 @@ public class MessagesController : ControllerBase
             .Select(m => new MessageDto
             {
                 Id = m.Id,
-                Content = m.Content,
+                Content = m.IsDeleted ? string.Empty : m.Content,
                 SentAt = m.SentAt,
                 SenderId = m.SenderId,
                 SenderDisplayName = m.Sender.DisplayName,
                 SenderProfilePictureUrl = m.Sender.ProfilePictureUrl,
-                IsAnnouncement = m.IsAnnouncement
+                IsAnnouncement = m.IsAnnouncement,
+                IsDeleted = m.IsDeleted
             })
             .ToListAsync();
 
@@ -66,7 +68,7 @@ public class MessagesController : ControllerBase
             var isAdmin = await _context.CommunityMembers
                 .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId && m.Role == CommunityRole.Admin);
             if (!isAdmin)
-               return Forbid();
+               return Forbid(); //yönetici değilse istek reddedilir
         }
 
         if (string.IsNullOrWhiteSpace(dto.Content))
@@ -100,5 +102,29 @@ public class MessagesController : ControllerBase
         };
 
         return Ok(result);
+    }
+
+    // api/communities/{communityId}/messages/{messageId} mesajı sil
+    [Authorize]
+    [HttpDelete("{messageId}")]
+    public async Task<IActionResult> DeleteMessage(Guid communityId, Guid messageId)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var message = await _context.Messages
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.CommunityId == communityId);
+        if (message == null)
+           return NotFound(new { message = "Mesaj bulunamadı."});
+
+        var isAdmin = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId && m.Role == CommunityRole.Admin);
+        
+        if (message.SenderId != userId && !isAdmin)
+           return Forbid();
+        
+        message.IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Mesaj silindi."});
     }
 }

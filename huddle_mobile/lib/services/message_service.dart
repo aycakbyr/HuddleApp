@@ -23,4 +23,15 @@ class MessageService {
             return {'success': false, 'message': message};
         }
     }
+
+    //mesajı siler
+    Future<Map<String, dynamic>> deleteMessage(String communityId, String messageId) async {
+        try {
+            await _api.dio.delete('/communities/$communityId/messages/$messageId');
+            return {'success': true};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Mesaj silinemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
 }

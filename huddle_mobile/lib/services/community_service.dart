@@ -141,6 +141,17 @@ class CommunityService {
         }
     }
 
+    // yönetici topluluğu tamamen siler
+    Future<Map<String, dynamic>> deleteCommunity(String communityId) async {
+        try{
+            await _api.dio.delete('/communities/$communityId');
+            return {'success': true};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Topluluk silinemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
+
     //yönetici için: direkt eklenebilecek kullanıcıları arar
     Future<List<Map<String, dynamic>>> searchUsersToAdd(String communityId, String query) async {
         try {

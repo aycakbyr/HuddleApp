@@ -15,4 +15,5 @@ public class MessageDto //listeleme yaparken bizim Flutter'a geri göndereceğim
     public string SenderDisplayName { get; set; } = string.Empty;
     public string? SenderProfilePictureUrl { get; set; }
     public bool IsAnnouncement { get; set; }
+    public bool IsDeleted { get; set; }
 }

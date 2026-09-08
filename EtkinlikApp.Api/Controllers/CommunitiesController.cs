@@ -403,4 +403,26 @@ public class CommunitiesController : ControllerBase
         return Ok(new { message = "Üye eklendi."});
     }
 
+    //api/communities/{id} yöneticinin topluluğu tamamen silinmesi
+    [Authorize]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCommunity(Guid id)
+    {
+        var adminId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var community = await _context.Communities.FirstOrDefaultAsync(c => c.Id == id);
+        if (community == null)
+           return NotFound(new { message = "Topluluk bulunamadı."});
+        
+        var isAdmin = await _context.CommunityMembers
+            .AnyAsync(m => m.CommunityId == id && m.UserId == adminId && m.Role == CommunityRole.Admin);
+        if (!isAdmin)
+           return Forbid();
+        
+        _context.Communities.Remove(community); // bu satırı ve bağlı varsayıla cascade kuralına göre bağlı satırları sil
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Topluluk silindi."});
+    }
+
 }

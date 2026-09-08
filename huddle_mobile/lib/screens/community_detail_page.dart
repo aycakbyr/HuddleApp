@@ -84,6 +84,36 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
         }
     }
 
+    Future<void> _confirmDeleteCommunity() async {
+        final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+                title: const Text('Topluluğu sil'),
+                content: const Text('Bu topluluğu silmek istediğinize emin misin? Bu işlem geri alınamaz, tüm mesajlar ve üyelik bilgileri silinir.'),
+                actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('İptal'),
+                    ),
+                    TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Sil', style: TextStyle(color: Colors.red)),
+                    ),
+                ],
+            ),
+        );
+        if (confirmed != true) return;
+
+        final result = await _communityService.deleteCommunity(widget.communityId);
+        if (!mounted) return;
+
+        if (result['success'] == true) {
+            Navigator.popUntil(context, (route) => route.isFirst);
+        } else {
+            showAppSnackBar(context, result['message'], color: Colors.red);
+        }
+    }
+
     bool get _isMember {
         if (_community == null || _myUserId == null) return false;
         final members = List<Map<String, dynamic>>.from(_community!['members']);
@@ -555,6 +585,29 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                         );
                                     }),
                                 const SizedBox(height: 16),
+                                if (_isAdmin) ...[
+                                    const SizedBox(height: 24),
+                                    InkWell(
+                                        onTap: _confirmDeleteCommunity,
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: Container(
+                                            padding: const EdgeInsets.all(14),
+                                            decoration: BoxDecoration(
+                                                color: Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: Colors.red.shade200),
+                                            ),
+                                            child: Row(
+                                                children: const [
+                                                    Icon(Icons.delete_forever, color: Colors.red),
+                                                    SizedBox(width: 12),
+                                                    Text('Topluluğu sil', style: TextStyle(color: Colors.red,
+                                                    fontWeight: FontWeight.bold)),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                ],
                             ],
                         ),
                     ),
