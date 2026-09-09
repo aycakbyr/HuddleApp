@@ -9,6 +9,7 @@ import '../services/event_service.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'communities_page.dart';
+import 'chats_page.dart';
 
 class HomePage extends StatefulWidget {
     const HomePage({super.key});
@@ -29,7 +30,7 @@ class _HomePageState extends State<HomePage> {
         const MapPage(),
         const SizedBox(),
         const CommunitiesPage(),
-        const Center(child: Text('Sohbet')),
+        const ChatsPage(),
     ];
 
     @override
@@ -266,7 +267,7 @@ class _HomePageState extends State<HomePage> {
                         label: 'Topluluklar',
                     ),
                     const BottomNavigationBarItem(
-                        icon: Icon(Icons.),
+                        icon: Icon(Icons.chat_bubble_outline),
                         activeIcon: Icon(Icons.chat_bubble),
                         label: 'Sohbet',
                     ),

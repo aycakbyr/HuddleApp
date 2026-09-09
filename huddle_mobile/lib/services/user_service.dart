@@ -94,4 +94,17 @@ class UserService {
             return {'success': false, 'message': message};
         }
     }
+
+    //dm başlatmak için genel kullanıcı arama
+    Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+        try{
+            final response = await _api.dio.get(
+                '/users/search',
+                queryParameters: {'query': query},
+            );
+            return List<Map<String, dynamic>>.from(response.data);
+        } on DioException {
+            return [];
+        }
+    }
 }

@@ -6,6 +6,7 @@ using EtkinlikApp.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using Npgsql;
 
 namespace EtkinlikApp.Api.Controllers;
@@ -244,5 +245,32 @@ public class UsersController : ControllerBase
             .ToListAsync();
 
         return Ok(events);
+    }
+
+    // api/users/search?query=. dm başlatmak için genel kullanıcı arama
+    [Authorize]
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers([FromQuery] string query)
+    {
+        var myId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        if (string.IsNullOrWhiteSpace(query))
+           return Ok(new List<UserSearchResultDto>());
+
+        var results = await _context.Users
+            .Where(u => u.Id != myId)
+            .Where(u => u.DisplayName.ToLower().Contains(query.ToLower())
+                || (u.Username != null && u.Username.ToLower().Contains(query.ToLower())))
+            .Take(20)
+            .Select(u => new UserSearchResultDto
+            {
+                Id = u.Id,
+                DisplayName = u.DisplayName,
+                Username = u.Username ?? string.Empty,
+                ProfilePictureUrl = u.ProfilePictureUrl
+            })
+            .ToListAsync();
+
+        return Ok(results);
     }
 }

@@ -602,7 +602,7 @@ class _CommunityDetailPageState extends State<CommunityDetailPage> {
                                                     Icon(Icons.delete_forever, color: Colors.red),
                                                     SizedBox(width: 12),
                                                     Text('Topluluğu sil', style: TextStyle(color: Colors.red,
-                                                    fontWeight: FontWeight.Bold)),
+                                                    fontWeight: FontWeight.bold)),
                                                 ],
                                             ),
                                         ),

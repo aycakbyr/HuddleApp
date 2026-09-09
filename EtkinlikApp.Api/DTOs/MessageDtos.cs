@@ -17,3 +17,14 @@ public class MessageDto //listeleme yaparken bizim Flutter'a geri göndereceğim
     public bool IsAnnouncement { get; set; }
     public bool IsDeleted { get; set; }
 }
+
+public class ConversationSummaryDto //sohbet sekmesindeki dm listesi
+{
+    public Guid OtherUserId { get; set; }
+    public string OtherUserDisplayName { get; set; } = string.Empty;
+    public string? OtherUserProfilePictureUrl { get; set; }
+    public string LastMessageContent { get; set; } = string.Empty;
+    public bool LastMessageIsDeleted { get; set; }
+    public DateTime LastMessageSentAt { get; set; }
+    public bool IsLastMessageMine { get; set; } //true ise son mesajı ben göndermişim
+}

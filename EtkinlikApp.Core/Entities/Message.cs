@@ -7,6 +7,8 @@ public class Message
     public Event? Event { get; set; } = null!;
     public Guid? CommunityId { get; set; }
     public Community? Community { get; set; }
+    public Guid? ReceiverId { get; set; } // dm olarak
+    public User? Receiver { get; set; }
     public Guid SenderId { get; set; }
     public User Sender { get; set;} = null!;
     public string Content { get; set; } = string.Empty; //Content → mesajın kendisi (yazılan metin)
