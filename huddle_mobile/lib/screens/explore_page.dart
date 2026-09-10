@@ -46,7 +46,8 @@ class _ExplorePageState extends State<ExplorePage> {
       'id': e['id'],
       'title': e['title'],
       'category': e['categoryName'],
-      'distance': '-', // konum hesaplaması henüz yok
+      'distance': '-', // konum hesaplaması henüz yok (En Yakın sıralaması bu yüzden henüz çalışmıyor)
+      'startTimeRaw': e['startTime'], // sıralama için ham tarih
       'time': '${startTime.day}/${startTime.month} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}',
       'participants': e['participantCount'],
       'gender': genderMap[e['targetGender']] ?? 'Tümü',
@@ -76,6 +77,24 @@ class _ExplorePageState extends State<ExplorePage> {
         _isLoading = false;
       });
     }
+  }
+
+  // kategori filtresini ve seçili sıralamayı uygulayıp ekranda gösterilecek listeyi üretir (harita sekmesindeki mantığın aynısı)
+  List<Map<String, dynamic>> get _filteredEvents {
+    var list = _selectedCategory == 'Tümü'
+        ? List<Map<String, dynamic>>.from(_events)
+        : _events.where((e) => e['category'] == _selectedCategory).toList();
+
+    switch (_selectedSort) {
+      case 'En Yeni':
+        list.sort((a, b) => DateTime.parse(a['startTimeRaw']).compareTo(DateTime.parse(b['startTimeRaw'])));
+        break;
+      case 'En Popüler':
+        list.sort((a, b) => (b['participants'] ?? 0).compareTo(a['participants'] ?? 0));
+        break;
+      // 'En Yakın': cihazın konumu henüz alınmıyor, o yüzden bu seçenek şimdilik sıralamayı değiştirmiyor
+    }
+    return list;
   }
 
   Widget _sortChip(String label) {
@@ -179,11 +198,13 @@ class _ExplorePageState extends State<ExplorePage> {
                   ? Center(child: Text(_errorMessage!))
                   : _events.isEmpty
                       ? const Center(child: Text('Henüz etkinlik yok.'))
-                      : ListView.builder(
+                      : _filteredEvents.isEmpty
+                          ? const Center(child: Text('Bu filtrelere uygun etkinlik bulunamadı.'))
+                          : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _events.length,
+                          itemCount: _filteredEvents.length,
                           itemBuilder: (context, index) {
-                            final event = _events[index];
+                            final event = _filteredEvents[index];
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               color: _cardColors[index % _cardColors.length],

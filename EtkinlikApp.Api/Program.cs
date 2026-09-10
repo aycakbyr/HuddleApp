@@ -16,6 +16,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddScoped<CloudinaryService>();
+builder.Services.AddScoped<EmailService>();
 
 // dm "yazıyor..." göstergesi - geçici/hafızada tutulan bilgi olduğu için singleton
 builder.Services.AddSingleton<TypingIndicatorService>();

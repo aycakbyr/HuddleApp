@@ -14,6 +14,9 @@ public class User
     public string? ProfilePictureUrl { get; set; } // profil fotosu
     public Gender Gender { get; set; } = Gender.Unspecified; //= Gender.Unspecified kısmı da tıpkı Id'de yaptığımız gibi, bir varsayılan değer: kullanıcı cinsiyetini belirtmeden kayıt olursa, otomatik olarak "belirtilmemiş" olarak işaretlensin.
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; } = false; // hesabını sildi mi (FK kısıtlamaları yüzünden gerçek silme yerine anonimleştiriyoruz)
+    public string? PasswordResetCode { get; set; } // şifremi unuttum akışı için mailine gönderilen 6 haneli kod
+    public DateTime? PasswordResetCodeExpiresAt { get; set; } // kodun geçerlilik süresi (15dk)
     public ICollection<Event> CreatedEvents { get; set; } = new List<Event>(); //bir kullanıcı birden fazla etkinlik oluşturabilir
     public ICollection<EventParticipant> Participations { get; set; } = new List<EventParticipant>(); //Participations → bu kullanıcının katıldığı (veya katılım isteği gönderdiği) etkinlikler listesi
     public ICollection<Message> Messages { get; set; } = new List<Message>();  //Messages → bu kullanıcının gönderdiği chat mesajları listesi

@@ -81,4 +81,66 @@ class AuthService {
         }
     }
 
+    //şifre değiştirme
+    Future<Map<String, dynamic>> changePassword({
+        required String currentPassword,
+        required String newPassword,
+    }) async {
+        try {
+            final response = await _api.dio.put('/auth/change-password', data: {
+                'currentPassword': currentPassword,
+                'newPassword': newPassword,
+            });
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Şifre değiştirilemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
+
+    //hesabı silme
+    Future<Map<String, dynamic>> deleteAccount(String password) async {
+        try {
+            final response = await _api.dio.delete('/auth', data: {
+                'password': password,
+            });
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Hesap silinemedi.';
+            return {'success': false, 'message': message};
+        }
+    }
+
+    //şifremi unuttum - maile kod gönderir
+    Future<Map<String, dynamic>> forgotPassword(String email) async {
+        try {
+            final response = await _api.dio.post('/auth/forgot-password', data: {
+                'email': email,
+            });
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Bir hata oluştu, lütfen tekrar dene.';
+            return {'success': false, 'message': message};
+        }
+    }
+
+    //kodu doğrulayıp şifreyi sıfırlar
+    Future<Map<String, dynamic>> resetPassword({
+        required String email,
+        required String code,
+        required String newPassword,
+    }) async {
+        try {
+            final response = await _api.dio.post('/auth/reset-password', data: {
+                'email': email,
+                'code': code,
+                'newPassword': newPassword,
+            });
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Şifre sıfırlanamadı.';
+            return {'success': false, 'message': message};
+        }
+    }
+
 }

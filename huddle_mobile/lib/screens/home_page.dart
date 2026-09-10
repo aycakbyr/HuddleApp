@@ -15,6 +15,7 @@ import '../services/community_service.dart';
 import 'login_page.dart';
 import 'communities_page.dart';
 import 'chats_page.dart';
+import 'search_page.dart';
 
 class HomePage extends StatefulWidget {
     const HomePage({super.key});
@@ -276,7 +277,12 @@ class _HomePageState extends State<HomePage> {
                 ),
                 actions: [
                     IconButton(
-                        onPressed: () {}, //ilerde arama 
+                        onPressed: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const SearchPage()),
+                            );
+                        },
                         icon: const Icon(Icons.search, color: Color(0xFF1A237E)),
                     ),
                     Stack(

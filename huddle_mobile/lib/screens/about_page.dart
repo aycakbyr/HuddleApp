@@ -30,7 +30,7 @@ class AboutPage extends StatelessWidget {
                                         style: GoogleFonts.pacifico(fontSize: 32, color: const Color(0xFF1A237E)),
                                     ),
                                     const SizedBox(height: 8),
-                                    const Text('Sürüm x.x.x', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                    const Text('Sürüm 1.0.0', style: TextStyle(color: Colors.grey, fontSize: 13)),
                                 ],
                             ),
                         ),

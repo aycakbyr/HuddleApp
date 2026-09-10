@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'register_page.dart';
+import 'forgot_password_page.dart';
 import 'home_page.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
@@ -150,7 +151,17 @@ class _LoginPageState extends State<LoginPage>{
                     label: Text('Apple ile devam et'),
                 ),
               ),
-              const SizedBox(height: 16),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
+                    );
+                  },
+                  child: const Text('Şifremi unuttum?'),
+                ),
+              ),
               Row( // yatay sıralar,yan yana koyar
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

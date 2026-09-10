@@ -20,11 +20,13 @@ public class AuthController : ControllerBase // apı controllerlarının miras a
 {
     private readonly AppDbContext _context;
     private readonly TokenService _tokenService;
+    private readonly EmailService _emailService;
 
-    public AuthController(AppDbContext context, TokenService tokenService)
+    public AuthController(AppDbContext context, TokenService tokenService, EmailService emailService)
     {
         _context = context;
         _tokenService = tokenService;
+        _emailService = emailService;
     }
 
 
@@ -208,5 +210,104 @@ public async Task<IActionResult> Login(LoginDto dto)
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Kullanıcı adı güncellendi.", username = user.Username });
+    }
+
+    // api/auth/change-password   mevcut şifreyi doğrulayıp yenisiyle değiştirir
+    [Authorize]
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+            return BadRequest(new { message = "Mevcut şifren yanlış." });
+
+        if (dto.NewPassword.Length < 6)
+            return BadRequest(new { message = "Yeni şifre en az 6 karakter olmalı." });
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Şifren güncellendi." });
+    }
+
+    // api/auth (DELETE)   hesabı siler
+    // not: Message/Event/Rating/CommunityPhoto gibi tablolarda User'a Restrict ile bağlıyız (geçmiş verinin bozulmaması için bilinçli tercih),
+    // o yüzden satırı gerçekten silmek FK hatası verir. Bunun yerine hesabı anonimleştirip devre dışı bırakıyoruz:
+    // eski mesajlar/etkinlikler/değerlendirmeler veritabanında kalır ama "Silinmiş Kullanıcı" olarak görünür, email boşa çıkar (tekrar kayıt olunabilir).
+    [Authorize]
+    [HttpDelete]
+    public async Task<IActionResult> DeleteAccount(DeleteAccountDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            return BadRequest(new { message = "Şifren yanlış." });
+
+        user.IsDeleted = true;
+        user.DisplayName = "Silinmiş Kullanıcı";
+        user.Email = $"silinmis_{user.Id}@silinmis.etkinlikapp";
+        user.Username = null;
+        user.ProfilePictureUrl = null;
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()); // eski şifreyle tekrar giriş yapılamasın diye rastgele bir hashe çeviriyoruz
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Hesabın silindi." });
+    }
+
+    // api/auth/forgot-password   maile 6 haneli sıfırlama kodu gönderir
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && !u.IsDeleted);
+
+        // kullanıcı var mı yok mu belli etmemek için (güvenlik) her zaman aynı mesajı dönüyoruz,
+        // ama email gerçekten kayıtlıysa arka planda kod üretip gönderiyoruz
+        if (user != null)
+        {
+            var code = Random.Shared.Next(100000, 999999).ToString();
+            user.PasswordResetCode = code;
+            user.PasswordResetCodeExpiresAt = DateTime.UtcNow.AddMinutes(15);
+            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendPasswordResetCodeAsync(user.Email, code);
+            }
+            catch
+            {
+                // mail gönderilemedi (örn. SMTP ayarları henüz girilmemiş) - kullanıcıya sızdırmadan sessizce geçiyoruz,
+                // backend loglarından fark edilir
+                return StatusCode(500, new { message = "Mail gönderilirken bir sorun oluştu, lütfen daha sonra tekrar dene." });
+            }
+        }
+
+        return Ok(new { message = "Bu email adresine kayıtlı bir hesap varsa, sıfırlama kodu gönderildi." });
+    }
+
+    // api/auth/reset-password   kodu doğrulayıp şifreyi yeniler
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && !u.IsDeleted);
+
+        if (user == null || user.PasswordResetCode == null || user.PasswordResetCode != dto.Code
+            || user.PasswordResetCodeExpiresAt == null || user.PasswordResetCodeExpiresAt < DateTime.UtcNow)
+            return BadRequest(new { message = "Kod geçersiz veya süresi dolmuş." });
+
+        if (dto.NewPassword.Length < 6)
+            return BadRequest(new { message = "Yeni şifre en az 6 karakter olmalı." });
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        user.PasswordResetCode = null;
+        user.PasswordResetCodeExpiresAt = null;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Şifren sıfırlandı, şimdi giriş yapabilirsin." });
     }
 }
