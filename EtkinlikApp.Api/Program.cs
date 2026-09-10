@@ -17,6 +17,9 @@ builder.Services.AddScoped<TokenService>();
 
 builder.Services.AddScoped<CloudinaryService>();
 
+// dm "yazıyor..." göstergesi - geçici/hafızada tutulan bilgi olduğu için singleton
+builder.Services.AddSingleton<TypingIndicatorService>();
+
 //jwt doğrulama
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {

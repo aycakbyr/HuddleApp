@@ -3,6 +3,7 @@ using System;
 using EtkinlikApp.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EtkinlikApp.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910062030_AddMessageReadReceipt")]
+    partial class AddMessageReadReceipt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -155,9 +158,6 @@ namespace EtkinlikApp.Infrastructure.Migrations
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("LastReadAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
@@ -180,7 +180,7 @@ namespace EtkinlikApp.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CommunityId")
+                    b.Property<Guid>("CommunityId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
@@ -190,17 +190,12 @@ namespace EtkinlikApp.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ReceiverId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CommunityId");
-
-                    b.HasIndex("ReceiverId");
 
                     b.HasIndex("UserId");
 
@@ -585,11 +580,8 @@ namespace EtkinlikApp.Infrastructure.Migrations
                     b.HasOne("EtkinlikApp.Core.Entities.Community", "Community")
                         .WithMany("Photos")
                         .HasForeignKey("CommunityId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("EtkinlikApp.Core.Entities.User", "Receiver")
-                        .WithMany()
-                        .HasForeignKey("ReceiverId");
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("EtkinlikApp.Core.Entities.User", "User")
                         .WithMany("CommunityPhotos")
@@ -598,8 +590,6 @@ namespace EtkinlikApp.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Community");
-
-                    b.Navigation("Receiver");
 
                     b.Navigation("User");
                 });

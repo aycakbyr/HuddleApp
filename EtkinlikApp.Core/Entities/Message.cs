@@ -15,4 +15,6 @@ public class Message
     public DateTime SentAt { get; set; } = DateTime.UtcNow; //SentAt → gönderilme zamanı, yine otomatik dolduruluyor, tıpkı diğer CreatedAt/RequestedAt alanlarında yaptığımız gibi
     public bool IsAnnouncement { get; set; } = false; // true ise bu sohbet mesajı değil yöneticinin duyurusu
     public bool IsDeleted { get; set; } = false; //true ise mesaj silinmiş
+    public bool IsRead { get; set; } = false; //dm'de karşı taraf mesajı görmüş mü (okundu tiki için)
+    public DateTime? ReadAt { get; set; }
 }

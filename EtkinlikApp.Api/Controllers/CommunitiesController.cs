@@ -75,7 +75,29 @@ public class CommunitiesController : ControllerBase
                 Name = c.Name,
                 ProfilePictureUrl = c.ProfilePictureUrl,
                 MemberCount = c.Members.Count,
-                IsMember = c.Members.Any(m => m.UserId == userId)
+                IsMember = c.Members.Any(m => m.UserId == userId),
+                // sohbetler sekmesindeki birleşik gelen kutusu için son mesajı da düzleştirip gönderiyoruz
+                LastMessageContent = c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => m.IsDeleted ? string.Empty : m.Content)
+                    .FirstOrDefault(),
+                LastMessageIsDeleted = c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => (bool?)m.IsDeleted)
+                    .FirstOrDefault() ?? false,
+                LastMessageSentAt = c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => (DateTime?)m.SentAt)
+                    .FirstOrDefault(),
+                IsLastMessageMine = c.Messages
+                    .OrderByDescending(m => m.SentAt)
+                    .Select(m => (bool?)(m.SenderId == userId))
+                    .FirstOrDefault() ?? false,
+                // kendi mesajlarımı saymıyoruz, sadece en son ne zaman baktıysam ondan sonra gelenleri sayıyoruz
+                UnreadCount = c.Messages.Count(m =>
+                    m.SenderId != userId &&
+                    !m.IsDeleted &&
+                    m.SentAt > (c.Members.Where(mem => mem.UserId == userId).Select(mem => mem.LastReadAt).FirstOrDefault() ?? DateTime.MinValue))
             })
             .ToListAsync();
         

@@ -17,6 +17,13 @@ public class CommunityListDto
     public string? ProfilePictureUrl { get; set; }
     public int MemberCount { get; set; }
     public bool IsMember { get; set; } // giriş yapan kullanıcı bu topluluğun üyesi mi
+
+    // sohbetler sekmesindeki birleşik gelen kutusu için son mesaj önizlemesi
+    public string? LastMessageContent { get; set; }
+    public bool LastMessageIsDeleted { get; set; }
+    public DateTime? LastMessageSentAt { get; set; }
+    public bool IsLastMessageMine { get; set; }
+    public int UnreadCount { get; set; } // giriş yapan kullanıcının bu toplulukta okumadığı mesaj sayısı
 }
 
 // topluluk bilgileri sayfasında gösterilecek detaylı bilgi

@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/direct_message_service.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
+import '../utils/chat_date_helper.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'direct_starred_page.dart';
+import 'direct_photos_page.dart';
 
 class DirectChatPage extends StatefulWidget {
     final String otherUserId;
@@ -21,6 +27,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
     final _userService = UserService();
     final _textController = TextEditingController();
     final _scrollController = ScrollController();
+    final _picker = ImagePicker();
 
     List<Map<String, dynamic>> _messages = [];
     Map<String, dynamic>? _otherUser;
@@ -30,15 +37,23 @@ class _DirectChatPageState extends State<DirectChatPage> {
     final _storage = const FlutterSecureStorage();
     String? _wallpaperPath;
     Set<String> _starredIds = {};
+    Timer? _pollTimer;
+    Timer? _typingPollTimer;
+    bool _isOtherUserTyping = false;
+    DateTime? _lastTypingNotifiedAt;
 
     @override
     void initState() {
         super.initState();
         _loadData();
+        _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _pollMessages());
+        _typingPollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollTypingStatus());
     }
 
     @override
     void dispose() {
+        _pollTimer?.cancel();
+        _typingPollTimer?.cancel();
         _textController.dispose();
         _scrollController.dispose();
         super.dispose();
@@ -67,6 +82,56 @@ class _DirectChatPageState extends State<DirectChatPage> {
         _scrollToBottom();
     }
 
+    // arka planda sessizce yeni mesajları / okundu tiklerini çeker, ekranı yeniden yüklemeden günceller
+    Future<void> _pollMessages() async {
+        if (!mounted) return;
+        try {
+            final fresh = await _messageService.getMessages(widget.otherUserId);
+            if (!mounted) return;
+
+            final oldLength = _messages.length;
+            final changed = fresh.length != _messages.length || _hasContentChanged(fresh);
+            if (!changed) return;
+
+            setState(() => _messages = fresh);
+
+            if (fresh.length > oldLength) {
+                _scrollToBottom();
+            }
+        } catch (e) {
+            // sessiz başarısızlık - polling bir sonraki turda tekrar dener
+        }
+    }
+
+    bool _hasContentChanged(List<Map<String, dynamic>> fresh) {
+        for (var i = 0; i < fresh.length && i < _messages.length; i++) {
+            if (fresh[i]['isRead'] != _messages[i]['isRead']) return true;
+            if (fresh[i]['isDeleted'] != _messages[i]['isDeleted']) return true;
+        }
+        return false;
+    }
+
+    // karşı tarafın şu an yazıp yazmadığını sorar, sadece değiştiyse ekranı günceller
+    Future<void> _pollTypingStatus() async {
+        if (!mounted) return;
+        final isTyping = await _messageService.getTypingStatus(widget.otherUserId);
+        if (!mounted) return;
+        if (isTyping != _isOtherUserTyping) {
+            setState(() => _isOtherUserTyping = isTyping);
+        }
+    }
+
+    // metin kutusuna her tuş vuruşunda değil, en fazla 2 saniyede bir "yazıyorum" bildirimi gönderir
+    void _onTextChanged(String text) {
+        if (text.trim().isEmpty) return;
+        final now = DateTime.now();
+        if (_lastTypingNotifiedAt != null && now.difference(_lastTypingNotifiedAt!) < const Duration(seconds: 2)) {
+            return;
+        }
+        _lastTypingNotifiedAt = now;
+        _messageService.notifyTyping(widget.otherUserId);
+    }
+
     void _scrollToBottom() {
         WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!_scrollController.hasClients) return;
@@ -83,6 +148,39 @@ class _DirectChatPageState extends State<DirectChatPage> {
             }
         });
         await _storage.write(key: 'starred_dm_${widget.otherUserId}', value: jsonEncode(_starredIds.toList()));
+    }
+
+    Future<void> _pickWallpaper() async {
+        final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+        if (picked == null) return;
+
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = 'wallpaper_dm_${widget.otherUserId}.jpg';
+        final savedImage = await File(picked.path).copy('${appDir.path}/$fileName');
+
+        await _storage.write(key: 'wallpaper_dm_${widget.otherUserId}', value: savedImage.path);
+
+        if (!mounted) return;
+        setState(() => _wallpaperPath = savedImage.path);
+        showAppSnackBar(context, 'Duvar kağıdı ayarlandı.');
+    }
+
+    void _openStarredMessages() {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => DirectStarredPage(otherUserId: widget.otherUserId),
+            ),
+        );
+    }
+
+    void _openPhotos() {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => DirectPhotosPage(otherUserId: widget.otherUserId),
+            ),
+        );
     }
 
     void _showMessageOptions(Map<String, dynamic> message) {
@@ -180,15 +278,68 @@ class _DirectChatPageState extends State<DirectChatPage> {
                         ),
                         const SizedBox(width: 10),
                         Flexible(
-                            child: Text(
-                                _otherUser?['displayName'] ?? 'Sohbet',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Color(0xFF1A237E), fontSize: 16, fontWeight: FontWeight.w600),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                    Text(
+                                        _otherUser?['displayName'] ?? 'Sohbet',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Color(0xFF1A237E), fontSize: 16, fontWeight: FontWeight.w600),
+                                    ),
+                                    if (_isOtherUserTyping)
+                                        const Text(
+                                            'yazıyor...',
+                                            style: TextStyle(color: Colors.green, fontSize: 12, fontStyle: FontStyle.italic),
+                                        ),
+                                ],
                             ),
                         ),
                     ],
                 ),
                 iconTheme: const IconThemeData(color: Color(0xFF1A237E)),
+                actions: [
+                    PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: Color(0xFF1A237E)),
+                        onSelected: (value) {
+                            if (value == 'wallpaper') _pickWallpaper();
+                            if (value == 'starred') _openStarredMessages();
+                            if (value == 'photos') _openPhotos();
+                        },
+                        itemBuilder: (context) => [
+                            const PopupMenuItem(
+                                value: 'photos',
+                                child: Row(
+                                    children: [
+                                        Icon(Icons.photo_library_outlined, color: Color(0xFF1A237E), size: 20),
+                                        SizedBox(width: 10),
+                                        Text('Fotoğraflar'),
+                                    ],
+                                ),
+                            ),
+                            const PopupMenuItem(
+                                value: 'wallpaper',
+                                child: Row(
+                                    children: [
+                                        Icon(Icons.wallpaper, color: Color(0xFF1A237E), size: 20),
+                                        SizedBox(width: 10),
+                                        Text('Duvar Kağıdı Değiştir'),
+                                    ],
+                                ),
+                            ),
+                            const PopupMenuItem(
+                                value: 'starred',
+                                child: Row(
+                                    children: [
+                                        Icon(Icons.star, color: Colors.orange, size: 20),
+                                        SizedBox(width: 10),
+                                        Text('Yıldızlı Mesajlar'),
+                                    ],
+                                ),
+                            ),
+                        ],
+                    ),
+                ],
             ),
             body: Container(
                 width: double.infinity,
@@ -216,40 +367,83 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                         final message = _messages[index];
                                         final isMe = message['senderId'] == _myUserId;
                                         final isStarred = _starredIds.contains(message['id']);
+                                        final showDaySeparator = index == 0 || !isSameDay(_messages[index - 1]['sentAt'], message['sentAt']);
 
-                                        return GestureDetector(
-                                            onLongPress: () => _showMessageOptions(message),
-                                            child: Align(
-                                                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                                child: Container(
-                                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                                                    decoration: BoxDecoration(
-                                                        color: isMe ? const Color(0xFF1A237E) : Colors.white,
-                                                        borderRadius: BorderRadius.circular(12),
+                                        return Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                                if (showDaySeparator)
+                                                    Padding(
+                                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                                        child: Center(
+                                                            child: Container(
+                                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                                                decoration: BoxDecoration(
+                                                                    color: Colors.black.withOpacity(0.06),
+                                                                    borderRadius: BorderRadius.circular(10),
+                                                                ),
+                                                                child: Text(
+                                                                    formatDaySeparator(message['sentAt']),
+                                                                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                                                ),
+                                                            ),
+                                                        ),
                                                     ),
-                                                    child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                            message['isDeleted'] == true
-                                                                ? Text(
-                                                                    'Bu mesaj silindi',
-                                                                    style: TextStyle(color: isMe ? Colors.white70 : Colors.grey, fontStyle: FontStyle.italic),
-                                                                )
-                                                                : Text(
-                                                                    message['content'],
-                                                                    style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-                                                                ),
-                                                            if (isStarred)
-                                                                Padding(
-                                                                    padding: const EdgeInsets.only(top: 4),
-                                                                    child: Icon(Icons.star, size: 12, color: isMe ? Colors.white : Colors.orange),
-                                                                ),
-                                                        ],
+                                                GestureDetector(
+                                                    onLongPress: () => _showMessageOptions(message),
+                                                    child: Align(
+                                                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                                        child: Container(
+                                                            margin: const EdgeInsets.symmetric(vertical: 4),
+                                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                                                            decoration: BoxDecoration(
+                                                                color: isMe ? const Color(0xFF1A237E) : Colors.white,
+                                                                borderRadius: BorderRadius.circular(12),
+                                                            ),
+                                                            child: Column(
+                                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                                children: [
+                                                                    message['isDeleted'] == true
+                                                                        ? Text(
+                                                                            'Bu mesaj silindi',
+                                                                            style: TextStyle(color: isMe ? Colors.white70 : Colors.grey, fontStyle: FontStyle.italic),
+                                                                        )
+                                                                        : Text(
+                                                                            message['content'],
+                                                                            style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                                                                        ),
+                                                                    if (isStarred)
+                                                                        Padding(
+                                                                            padding: const EdgeInsets.only(top: 4),
+                                                                            child: Icon(Icons.star, size: 12, color: isMe ? Colors.white : Colors.orange),
+                                                                        ),
+                                                                    Padding(
+                                                                        padding: const EdgeInsets.only(top: 4),
+                                                                        child: Row(
+                                                                            mainAxisSize: MainAxisSize.min,
+                                                                            children: [
+                                                                                Text(
+                                                                                    formatMessageTime(message['sentAt']),
+                                                                                    style: TextStyle(fontSize: 10, color: isMe ? Colors.white70 : Colors.grey),
+                                                                                ),
+                                                                                if (isMe) ...[
+                                                                                    const SizedBox(width: 4),
+                                                                                    Icon(
+                                                                                        message['isRead'] == true ? Icons.done_all : Icons.done,
+                                                                                        size: 13,
+                                                                                        color: message['isRead'] == true ? Colors.lightBlueAccent : Colors.white70,
+                                                                                    ),
+                                                                                ],
+                                                                            ],
+                                                                        ),
+                                                                    ),
+                                                                ],
+                                                            ),
+                                                        ),
                                                     ),
                                                 ),
-                                            ),
+                                            ],
                                         );
                                     },
                                 ),
@@ -265,6 +459,7 @@ class _DirectChatPageState extends State<DirectChatPage> {
                                         Expanded(
                                             child: TextField(
                                                 controller: _textController,
+                                                onChanged: _onTextChanged,
                                                 decoration: InputDecoration(
                                                     hintText: 'Mesaj yaz...',
                                                     filled: true,

@@ -16,6 +16,7 @@ public class MessageDto //listeleme yaparken bizim Flutter'a geri göndereceğim
     public string? SenderProfilePictureUrl { get; set; }
     public bool IsAnnouncement { get; set; }
     public bool IsDeleted { get; set; }
+    public bool IsRead { get; set; } //dm'de karşı taraf gördü mü (okundu tiki)
 }
 
 public class ConversationSummaryDto //sohbet sekmesindeki dm listesi
@@ -27,4 +28,5 @@ public class ConversationSummaryDto //sohbet sekmesindeki dm listesi
     public bool LastMessageIsDeleted { get; set; }
     public DateTime LastMessageSentAt { get; set; }
     public bool IsLastMessageMine { get; set; } //true ise son mesajı ben göndermişim
+    public int UnreadCount { get; set; } // bu kullanıcıdan gelen okunmamış mesaj sayısı
 }

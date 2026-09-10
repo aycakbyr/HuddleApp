@@ -27,9 +27,9 @@ public class MessagesController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-        var isMember = await _context.CommunityMembers
-            .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId);
-        if (!isMember)
+        var member = await _context.CommunityMembers
+            .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == userId);
+        if (member == null)
             return Forbid();
 
         var messages = await _context.Messages
@@ -44,9 +44,14 @@ public class MessagesController : ControllerBase
                 SenderDisplayName = m.Sender.DisplayName,
                 SenderProfilePictureUrl = m.Sender.ProfilePictureUrl,
                 IsAnnouncement = m.IsAnnouncement,
-                IsDeleted = m.IsDeleted
+                IsDeleted = m.IsDeleted,
+                IsRead = m.IsRead
             })
             .ToListAsync();
+
+        // sohbeti açtığı an için "en son okuduğu zaman"ı güncelliyoruz (topluluklar listesindeki okunmamış mesaj sayısı için)
+        member.LastReadAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         return Ok(messages);
     }
@@ -97,8 +102,9 @@ public class MessagesController : ControllerBase
             SenderId = userId,
             SenderDisplayName = sender!.DisplayName,
             SenderProfilePictureUrl = sender.ProfilePictureUrl,
-            IsAnnouncement = message.IsAnnouncement
-            
+            IsAnnouncement = message.IsAnnouncement,
+            IsDeleted = false,
+            IsRead = false
         };
 
         return Ok(result);

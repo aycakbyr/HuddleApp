@@ -134,6 +134,53 @@ public class UploadController : ControllerBase
 
    }
 
+   //post api/upload/direct-messages/{otherUserId}/photo iki kullanıcı arasındaki dm sohbetine foto ekleme (CommunityPhoto tablosu dm için de kullanılıyor, DRY)
+   [HttpPost("direct-messages/{otherUserId}/photo")]
+   public async Task<IActionResult> UploadDirectPhoto(Guid otherUserId, IFormFile file)
+   {
+      var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+      var receiverExists = await _context.Users.AnyAsync(u => u.Id == otherUserId);
+      if (!receiverExists)
+         return NotFound(new { message = "Kullanıcı bulunamadı."});
+
+      // dm izin modeli mesajlaşmadakiyle aynı: hiç takip ilişkisi yoksa ve önceden hiç mesajlaşılmamışsa foto da gönderilemez
+      var followsExists = await _context.Follows.AnyAsync(f =>
+          (f.FollowerId == userId && f.FollowingId == otherUserId) ||
+          (f.FollowerId == otherUserId && f.FollowingId == userId));
+      if (!followsExists)
+      {
+         var alreadyConversed = await _context.Messages.AnyAsync(m =>
+             m.ReceiverId != null &&
+             ((m.SenderId == userId && m.ReceiverId == otherUserId) ||
+              (m.SenderId == otherUserId && m.ReceiverId == userId)));
+         if (!alreadyConversed)
+            return StatusCode(403, new { message = "Bu kullanıcıyla fotoğraf paylaşabilmen için birbirinizi takip etmeniz gerekiyor."});
+      }
+
+      if (file == null || file.Length == 0)
+         return BadRequest(new { message = "Dosya seçilemedi."});
+
+      var allowedTypes = new[] {"image/jpeg", "image/png", "image/webp"};
+      if (!allowedTypes.Contains(file.ContentType))
+         return BadRequest(new { message = "Sadece JPEG, PNG veya WebP yükleyebilirsiniz."});
+
+      var imageUrl = await _cloudinary.UploadImageAsync(file);
+      if (imageUrl == null)
+         return StatusCode(500, new { message = "Fotoğraf yüklenemedi."});
+
+      var photo = new CommunityPhoto
+      {
+         UserId = userId,
+         ReceiverId = otherUserId,
+         ImageUrl = imageUrl
+      };
+      _context.CommunityPhotos.Add(photo);
+      await _context.SaveChangesAsync();
+
+      return Ok(new { id = photo.Id, imageUrl});
+   }
+
    //post api/upload/community/{communityId}/picture yöneticinin topluluk pp değiştirmesi
    [HttpPost("community/{communityId}/picture")]
    public async Task<IActionResult> UploadCommunityPicture(Guid communityId, IFormFile file)

@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'explore_page.dart';
 import 'map_page.dart';
 import 'create_event_page.dart';
@@ -7,6 +10,8 @@ import 'profile_page.dart';
 import 'requests_page.dart';
 import '../services/event_service.dart';
 import '../services/auth_service.dart';
+import '../services/direct_message_service.dart';
+import '../services/community_service.dart';
 import 'login_page.dart';
 import 'communities_page.dart';
 import 'chats_page.dart';
@@ -21,7 +26,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
     int _currentIndex = 0;
     final _eventService = EventService();
+    final _messageService = DirectMessageService();
+    final _communityService = CommunityService();
+    final _storage = const FlutterSecureStorage();
     int _pendingRequestCount = 0;
+    int _unreadChatCount = 0;
+    Timer? _unreadPollTimer;
     String? _displayName;
     String? _profilePictureUrl;
 
@@ -38,6 +48,14 @@ class _HomePageState extends State<HomePage> {
         super.initState();
         _loadPendingRequestCount();
         _loadMe();
+        _loadUnreadChatCount();
+        _unreadPollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _loadUnreadChatCount());
+    }
+
+    @override
+    void dispose() {
+        _unreadPollTimer?.cancel();
+        super.dispose();
     }
 
     Future<void> _loadMe() async {
@@ -58,6 +76,66 @@ class _HomePageState extends State<HomePage> {
         } catch (e) {
             // sessizce geç, rozet gösterilmez
         }
+    }
+
+    // "sohbet" sekmesindeki toplam okunmamış mesaj sayısı (dm + topluluk), alt navigasyondaki rozet için
+    // sohbetler sekmesindeki gizleme/arşivleme mantığıyla aynı: gizlenmiş/arşivlenmiş sohbetler sayılmaz
+    Future<void> _loadUnreadChatCount() async {
+        try {
+            final conversations = await _messageService.getConversations();
+            final communities = await _communityService.getCommunities();
+
+            final hiddenRaw = await _storage.read(key: 'hidden_conversations');
+            final hidden = hiddenRaw == null ? <String, String>{} : Map<String, String>.from(jsonDecode(hiddenRaw));
+            final archivedRaw = await _storage.read(key: 'archived_communities');
+            final archivedIds = archivedRaw == null ? <String>{} : Set<String>.from(jsonDecode(archivedRaw));
+
+            var total = 0;
+            for (final c in conversations) {
+                final hiddenAtRaw = hidden[c['otherUserId']];
+                if (hiddenAtRaw != null) {
+                    final hiddenAt = DateTime.parse(hiddenAtRaw);
+                    final lastMessageAt = DateTime.parse(c['lastMessageSentAt']);
+                    if (!lastMessageAt.isAfter(hiddenAt)) continue;
+                }
+                total += (c['unreadCount'] ?? 0) as int;
+            }
+            for (final community in communities) {
+                if (community['isMember'] != true) continue;
+                if (archivedIds.contains(community['id'])) continue;
+                total += (community['unreadCount'] ?? 0) as int;
+            }
+
+            if (!mounted) return;
+            setState(() => _unreadChatCount = total);
+        } catch (e) {
+            // sessizce geç, rozet gösterilmez
+        }
+    }
+
+    // "sohbet" ikonunun köşesine okunmamış toplam sayıyı gösteren rozet
+    Widget _buildChatIcon(bool active) {
+        return Stack(
+            clipBehavior: Clip.none,
+            children: [
+                Icon(active ? Icons.chat_bubble : Icons.chat_bubble_outline),
+                if (_unreadChatCount > 0)
+                    Positioned(
+                        right: -6,
+                        top: -4,
+                        child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: const BoxDecoration(color: Color(0xFF25D366), shape: BoxShape.circle),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text(
+                                _unreadChatCount > 99 ? '99+' : '$_unreadChatCount',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                        ),
+                    ),
+            ],
+        );
     }
 
     void _openProfile() {
@@ -266,9 +344,9 @@ class _HomePageState extends State<HomePage> {
                         activeIcon: Icon(Icons.groups),
                         label: 'Topluluklar',
                     ),
-                    const BottomNavigationBarItem(
-                        icon: Icon(Icons.chat_bubble_outline),
-                        activeIcon: Icon(Icons.chat_bubble),
+                    BottomNavigationBarItem(
+                        icon: _buildChatIcon(false),
+                        activeIcon: _buildChatIcon(true),
                         label: 'Sohbet',
                     ),
                 ],

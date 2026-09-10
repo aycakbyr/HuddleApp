@@ -11,4 +11,5 @@ public class CommunityMember
     public User User { get; set; } = null!;
     public CommunityRole Role { get; set; } = CommunityRole.Member;
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastReadAt { get; set; } // bu üye sohbeti en son ne zaman açtı (okunmamış mesaj sayısı için)
 }
