@@ -10,6 +10,7 @@ using EtkinlikApp.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
+using Google.Apis.Auth;
 using EtkinlikApp.Infrastructure.Migrations;
 
 namespace EtkinlikApp.Api.Controllers;
@@ -21,12 +22,14 @@ public class AuthController : ControllerBase // apı controllerlarının miras a
     private readonly AppDbContext _context;
     private readonly TokenService _tokenService;
     private readonly EmailService _emailService;
+    private readonly IConfiguration _config;
 
-    public AuthController(AppDbContext context, TokenService tokenService, EmailService emailService)
+    public AuthController(AppDbContext context, TokenService tokenService, EmailService emailService, IConfiguration config)
     {
         _context = context;
         _tokenService = tokenService;
         _emailService = emailService;
+        _config = config;
     }
 
 
@@ -133,7 +136,8 @@ public async Task<IActionResult> Login(LoginDto dto)
             createdAt = user.CreatedAt,
             profilePictureUrl = user.ProfilePictureUrl,
             followerCount,
-            followingCount
+            followingCount,
+            profileCompleted = user.ProfileCompleted
         });
     }
 
@@ -309,5 +313,84 @@ public async Task<IActionResult> Login(LoginDto dto)
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Şifren sıfırlandı, şimdi giriş yapabilirsin." });
+    }
+
+    // api/auth/google   Google idToken'ını doğrulayıp bizim kendi jwt'mize çevirir
+    [HttpPost("google")]
+    public async Task<IActionResult> GoogleLogin(GoogleLoginDto dto)
+    {
+        GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                // uygulamanın 3 platformu (android/web/ios) için ayrı client id'ler var, token hangisine ait olursa olsun kabul ediyoruz
+                Audience = new[]
+                {
+                    _config["GoogleAuth:AndroidClientId"],
+                    _config["GoogleAuth:WebClientId"],
+                    _config["GoogleAuth:IosClientId"],
+                }
+            };
+            payload = await GoogleJsonWebSignature.ValidateAsync(dto.IdToken, settings);
+        }
+        catch (InvalidJwtException)
+        {
+            return Unauthorized(new { message = "Google girişi doğrulanamadı." });
+        }
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == payload.Email && !u.IsDeleted);
+
+        if (user == null)
+        {
+            // ilk kez Google ile giriş yapıyor - Google bize doğum tarihi/cinsiyet vermiyor,
+            // o yüzden hesabı ProfileCompleted=false ile oluşturup Flutter tarafında profil tamamlama ekranına yönlendireceğiz
+            user = new User
+            {
+                Email = payload.Email,
+                DisplayName = payload.Name ?? payload.Email,
+                Username = await GenerateUniqueUsernameAsync(payload.Name ?? payload.Email),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // google ile girdiği için normal şifreye ihtiyacı yok
+                ProfilePictureUrl = payload.Picture,
+                BirthDate = DateTime.UtcNow, // geçici değer, profil tamamlanınca gerçeğiyle değişecek
+                ProfileCompleted = false,
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new
+        {
+            token = _tokenService.CreateToken(user),
+            id = user.Id,
+            email = user.Email,
+            displayName = user.DisplayName,
+            username = user.Username,
+            gender = user.Gender.ToString(),
+            profileCompleted = user.ProfileCompleted
+        });
+    }
+
+    // api/auth/complete-profile   Google ile ilk kez giren kullanıcının doğum tarihi/cinsiyetini tamamlar
+    [Authorize]
+    [HttpPut("complete-profile")]
+    public async Task<IActionResult> CompleteProfile(CompleteProfileDto dto)
+    {
+        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        var age = DateTime.UtcNow.Year - dto.BirthDate.Year;
+        if (dto.BirthDate.Date > DateTime.UtcNow.AddYears(-age)) age--;
+        if (age < 18)
+            return BadRequest(new { message = "18 yaşından küçükler kayıt olamaz." });
+
+        user.BirthDate = DateTime.SpecifyKind(dto.BirthDate, DateTimeKind.Utc);
+        user.Gender = dto.Gender;
+        user.ProfileCompleted = true;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Profilin tamamlandı." });
     }
 }

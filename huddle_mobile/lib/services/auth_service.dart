@@ -143,4 +143,38 @@ class AuthService {
         }
     }
 
+    //google ile giriş - google'dan alınan idToken'ı backend'e doğrulatır
+    Future<Map<String, dynamic>> loginWithGoogle(String idToken) async {
+        try {
+            final response = await _api.dio.post('/auth/google', data: {
+                'idToken': idToken,
+            });
+
+            final token = response.data['token'];
+            await _api.saveToken(token);
+
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Google ile giriş yapılamadı.';
+            return {'success': false, 'message': message};
+        }
+    }
+
+    //google ile ilk kez girenler için doğum tarihi/cinsiyet tamamlama
+    Future<Map<String, dynamic>> completeProfile({
+        required int gender,
+        required DateTime birthDate,
+    }) async {
+        try {
+            final response = await _api.dio.put('/auth/complete-profile', data: {
+                'gender': gender,
+                'birthDate': birthDate.toUtc().toIso8601String(),
+            });
+            return {'success': true, 'data': response.data};
+        } on DioException catch (e) {
+            final message = e.response?.data?['message'] ?? 'Profil tamamlanamadı.';
+            return {'success': false, 'message': message};
+        }
+    }
+
 }

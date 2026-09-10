@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'complete_profile_page.dart';
 import 'home_page.dart';
 import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
@@ -19,8 +21,61 @@ class _LoginPageState extends State<LoginPage>{
     final _emailController = TextEditingController();
     final _passwordController = TextEditingController();
     bool _isLoading = false;
+    bool _isGoogleLoading = false;
     String? _emailError;
     String? _passwordError;
+
+    // ios client id (android'de kullanılmıyor) + web client id (idToken almak için android/ios ikisinde de gerekli)
+    final _googleSignIn = GoogleSignIn(
+        clientId: '498157770608-bf3uk1r7a7of1afal72md8a17i77qpfr.apps.googleusercontent.com',
+        serverClientId: '498157770608-1apjf59m8l2ucv5ebh5qfhat5i8lhp2i.apps.googleusercontent.com',
+    );
+
+    Future<void> _handleGoogleSignIn() async {
+        setState(() => _isGoogleLoading = true);
+        try {
+            final account = await _googleSignIn.signIn();
+            if (account == null) {
+                // kullanıcı iptal etti
+                setState(() => _isGoogleLoading = false);
+                return;
+            }
+
+            final auth = await account.authentication;
+            final idToken = auth.idToken;
+            if (idToken == null) {
+                if (!mounted) return;
+                setState(() => _isGoogleLoading = false);
+                showAppSnackBar(context, 'Google girişi başarısız oldu, tekrar dener misin?', color: Colors.red);
+                return;
+            }
+
+            final result = await _authService.loginWithGoogle(idToken);
+            if (!mounted) return;
+            setState(() => _isGoogleLoading = false);
+
+            if (result['success'] == true) {
+                final profileCompleted = result['data']['profileCompleted'] == true;
+                if (profileCompleted) {
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const HomePage()),
+                    );
+                } else {
+                    Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CompleteProfilePage()),
+                    );
+                }
+            } else {
+                showAppSnackBar(context, result['message'], color: Colors.red);
+            }
+        } catch (e) {
+            if (!mounted) return;
+            setState(() => _isGoogleLoading = false);
+            showAppSnackBar(context, 'Google girişi başarısız oldu, tekrar dener misin?', color: Colors.red);
+        }
+    }
 
   @override
   void dispose(){ //ekranı kapatınca controller ları da temizler
@@ -128,13 +183,19 @@ class _LoginPageState extends State<LoginPage>{
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
                     style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.red,
                         side: BorderSide(color: Colors.red),
                     ),
-                    icon: FaIcon(FontAwesomeIcons.google, color: Colors.red, size: 20),
+                    icon: _isGoogleLoading
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                        )
+                        : FaIcon(FontAwesomeIcons.google, color: Colors.red, size: 20),
                     label: Text('Google ile devam et'),
                 ),
               ),
@@ -142,7 +203,9 @@ class _LoginPageState extends State<LoginPage>{
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                        showAppSnackBar(context, 'Yakında eklenecek.');
+                    },
                     style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,

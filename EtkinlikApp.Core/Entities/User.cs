@@ -17,6 +17,7 @@ public class User
     public bool IsDeleted { get; set; } = false; // hesabını sildi mi (FK kısıtlamaları yüzünden gerçek silme yerine anonimleştiriyoruz)
     public string? PasswordResetCode { get; set; } // şifremi unuttum akışı için mailine gönderilen 6 haneli kod
     public DateTime? PasswordResetCodeExpiresAt { get; set; } // kodun geçerlilik süresi (15dk)
+    public bool ProfileCompleted { get; set; } = true; // normal kayıtta hep true; Google ile ilk kez giriş yapan hesaplarda false (doğum tarihi/cinsiyet Google'dan gelmiyor, sonradan tamamlatıyoruz)
     public ICollection<Event> CreatedEvents { get; set; } = new List<Event>(); //bir kullanıcı birden fazla etkinlik oluşturabilir
     public ICollection<EventParticipant> Participations { get; set; } = new List<EventParticipant>(); //Participations → bu kullanıcının katıldığı (veya katılım isteği gönderdiği) etkinlikler listesi
     public ICollection<Message> Messages { get; set; } = new List<Message>();  //Messages → bu kullanıcının gönderdiği chat mesajları listesi

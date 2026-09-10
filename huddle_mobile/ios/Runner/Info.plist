@@ -68,5 +68,16 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Etkinliklere fotoğraf eklemek için galerine erişim gerekiyor.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.498157770608-bf3uk1r7a7of1afal72md8a17i77qpfr</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
