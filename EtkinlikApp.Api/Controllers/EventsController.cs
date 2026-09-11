@@ -35,6 +35,7 @@ public class EventsController : ControllerBase
             .Include(e => e.Category)
             .Include(e => e.Creator)
             .Include(e => e.Participants)
+            .Include(e => e.Community)
             .Where(e => e.StartTime > DateTime
             .UtcNow) // sadece gelecekteki etkinlikleri gösterme
             .OrderBy(e => e.StartTime)
@@ -53,7 +54,9 @@ public class EventsController : ControllerBase
                 ImageUrl = e.ImageUrl,
                 OrganizerAverageRating = e.Creator.RatingsReceived.Any()
                     ? Math.Round(e.Creator.RatingsReceived.Average(r => (double)r.Score), 1)
-                    : (double?)null
+                    : (double?)null,
+                CommunityId = e.CommunityId,
+                CommunityName = e.Community != null ? e.Community.Name : null
             })
             .ToListAsync();
         return Ok(events);
@@ -77,7 +80,16 @@ public class EventsController : ControllerBase
         //geçmiş kontrolü
         if (dto.StartTime <= DateTime.UtcNow)
            return BadRequest(new { message = "Etkinlik tarihi gelecekte olmalı."});
-        
+
+        // bir topluluk seçildiyse, o topluluğun üyesi mi diye kontrol (üye olmadığı bir topluluk adına etkinlik açamasın)
+        if (dto.CommunityId.HasValue)
+        {
+            var isMember = await _context.CommunityMembers
+                .AnyAsync(m => m.CommunityId == dto.CommunityId.Value && m.UserId == userId);
+            if (!isMember)
+                return BadRequest(new { message = "Bu topluluğun üyesi olmadığın için onun adına etkinlik oluşturamazsın." });
+        }
+
         // etkinlik oluştur
         var newEvent = new Event
         {
@@ -89,7 +101,8 @@ public class EventsController : ControllerBase
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
             TargetGender = dto.TargetGender,
-            StartTime = DateTime.SpecifyKind(dto.StartTime, DateTimeKind.Utc)
+            StartTime = DateTime.SpecifyKind(dto.StartTime, DateTimeKind.Utc),
+            CommunityId = dto.CommunityId
         };
 
         _context.Events.Add(newEvent);
@@ -102,6 +115,19 @@ public class EventsController : ControllerBase
             Status = ParticipantStatus.Approved,
             RespondedAt = DateTime.UtcNow
         });
+
+        // topluluk adına oluşturulan etkinlikse, o topluluğun sohbetine otomatik duyuru kartı düşür (Message.EventId dolu olan mesajları Flutter tarafında özel bir kart olarak gösteriyoruz)
+        if (dto.CommunityId.HasValue)
+        {
+            _context.Messages.Add(new Message
+            {
+                CommunityId = dto.CommunityId.Value,
+                SenderId = userId,
+                EventId = newEvent.Id,
+                Content = $"{dto.Title} etkinliğini oluşturdu.",
+                SentAt = DateTime.UtcNow
+            });
+        }
 
         await _context.SaveChangesAsync();
 
@@ -133,7 +159,15 @@ public class EventsController : ControllerBase
         
         if (dto.StartTime <= DateTime.UtcNow)
            return BadRequest(new { message = "Etkinlik tarihi gelecekte olmalı."});
-        
+
+        if (dto.CommunityId.HasValue)
+        {
+            var isMember = await _context.CommunityMembers
+                .AnyAsync(m => m.CommunityId == dto.CommunityId.Value && m.UserId == userId);
+            if (!isMember)
+                return BadRequest(new { message = "Bu topluluğun üyesi olmadığın için onun adına etkinlik oluşturamazsın." });
+        }
+
         existingEvent.CategoryId = dto.CategoryId;
         existingEvent.Title = dto.Title;
         existingEvent.Description = dto.Description;
@@ -142,6 +176,7 @@ public class EventsController : ControllerBase
         existingEvent.Longitude = dto.Longitude;
         existingEvent.TargetGender = dto.TargetGender;
         existingEvent.StartTime = DateTime.SpecifyKind(dto.StartTime, DateTimeKind.Utc);
+        existingEvent.CommunityId = dto.CommunityId;
 
         await _context.SaveChangesAsync();
 
@@ -157,6 +192,7 @@ public class EventsController : ControllerBase
         var ev = await _context.Events
             .Include(e => e.Category)
             .Include(e => e.Creator)
+            .Include(e => e.Community)
             .Include(e => e.Participants)
                 .ThenInclude(p => p.User)
             .FirstOrDefaultAsync(e => e.Id == id);
@@ -231,7 +267,9 @@ public class EventsController : ControllerBase
                  MyRatingWarmthScore = myRating?.WarmthScore,
                  OrganizerAverageRating = organizerAverageRating,
                  OrganizerRatingCount = organizerRatingCount,
-                 EventRatings = eventRatings
+                 EventRatings = eventRatings,
+                 CommunityId = ev.CommunityId,
+                 CommunityName = ev.Community != null ? ev.Community.Name : null
         };
         return Ok(dto);
     }

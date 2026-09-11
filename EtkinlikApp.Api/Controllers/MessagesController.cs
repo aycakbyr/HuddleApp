@@ -45,7 +45,15 @@ public class MessagesController : ControllerBase
                 SenderProfilePictureUrl = m.Sender.ProfilePictureUrl,
                 IsAnnouncement = m.IsAnnouncement,
                 IsDeleted = m.IsDeleted,
-                IsRead = m.IsRead
+                IsRead = m.IsRead,
+                EventId = m.EventId,
+                EventTitle = m.Event != null ? m.Event.Title : null,
+                EventStartTime = m.Event != null ? m.Event.StartTime : (DateTime?)null,
+                EventImageUrl = m.Event != null ? m.Event.ImageUrl : null,
+                EventParticipantCount = m.Event != null ? m.Event.Participants.Count(p => p.Status == ParticipantStatus.Approved) : (int?)null,
+                EventParticipationStatus = m.Event != null
+                    ? m.Event.Participants.Where(p => p.UserId == userId).Select(p => p.Status.ToString()).FirstOrDefault()
+                    : null
             })
             .ToListAsync();
 

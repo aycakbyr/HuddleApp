@@ -22,6 +22,7 @@ class EventService {
         required double longitude,
         required int targetGender,
         required DateTime startTime,
+        String? communityId, // seçilirse etkinlik bir topluluğa bağlanır
     }) async {
         try {
             final response = await _api.dio.post('/events', data: {
@@ -33,6 +34,7 @@ class EventService {
                 'longitude': longitude,
                 'targetGender': targetGender,
                 'startTime': startTime.toUtc().toIso8601String(),
+                'communityId': communityId,
             });
 
             return {'success': true, 'data': response.data};
@@ -53,6 +55,7 @@ class EventService {
         required double longitude,
         required int targetGender,
         required DateTime startTime,
+        String? communityId,
     }) async {
         try {
             final response = await _api.dio.put('/events/$eventId', data: {
@@ -64,6 +67,7 @@ class EventService {
                 'longitude': longitude,
                 'targetGender': targetGender,
                 'startTime': startTime.toUtc().toIso8601String(),
+                'communityId': communityId,
             });
 
             return {'success': true, 'data': response.data};

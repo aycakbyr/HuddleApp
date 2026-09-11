@@ -13,6 +13,7 @@ public class CreateEventDto // kullanıcının göndereceği alanlar
     public double Longitude { get; set; }
     public TargetGender TargetGender { get; set; } = TargetGender.All;
     public DateTime StartTime { get; set; }
+    public Guid? CommunityId { get; set; } // seçilirse etkinlik bir topluluğa bağlanır, boş bırakılırsa bağımsız etkinlik olur
 }
 
 // Etkinlik listelenirken dışarıya giden veri
@@ -30,6 +31,8 @@ public class EventListDto //listede gösterilecek alanlar
     public string OrganizerName { get; set; } = string.Empty;
     public string? ImageUrl { get; set; }
     public double? OrganizerAverageRating { get; set; } // haritada/listede kurucunun ortalama puanı
+    public Guid? CommunityId { get; set; }
+    public string? CommunityName { get; set; } // bir topluluğa bağlıysa ismi, değilse null
 }
 
 public class EventDetailDto
@@ -59,6 +62,8 @@ public class EventDetailDto
     public double? OrganizerAverageRating { get; set; }
     public int OrganizerRatingCount { get; set; }
     public List<RatingDto> EventRatings { get; set; } = new(); // bu etkinliğe yapılmış değerlendirmeler (yorumlar)
+    public Guid? CommunityId { get; set; }
+    public string? CommunityName { get; set; }
 }
 
 

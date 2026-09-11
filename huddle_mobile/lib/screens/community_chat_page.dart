@@ -7,6 +7,8 @@ import '../services/auth_service.dart';
 import '../utils/snackbar_helper.dart';
 import '../utils/chat_date_helper.dart';
 import 'community_detail_page.dart';
+import 'event_detail_page.dart';
+import '../services/event_service.dart';
 import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -34,6 +36,8 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
     final _storage = const FlutterSecureStorage();
     String? _wallpaperPath;
     Set<String> _starredIds = {};
+    Set<String> _joiningEventIds = {}; // etkinlik kartındaki Katıl butonuna basılınca yüklenme durumu için
+    final _eventService = EventService();
     Timer? _pollTimer;
 
     @override
@@ -189,6 +193,140 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
            return me.first['role'] == 'Admin';
     }
 
+    // topluluk için oluşturulan etkinliğin duyuru kartındaki "Katıl" butonu - direkt katılım isteği gönderir
+    Future<void> _joinEventFromCard(Map<String, dynamic> message) async {
+        final eventId = message['eventId'] as String;
+        setState(() => _joiningEventIds.add(eventId));
+
+        final result = await _eventService.joinEvent(eventId);
+        if (!mounted) return;
+
+        setState(() {
+            _joiningEventIds.remove(eventId);
+            if (result['success'] == true) {
+                final index = _messages.indexWhere((m) => m['id'] == message['id']);
+                if (index != -1) {
+                    _messages[index]['eventParticipationStatus'] = 'Pending';
+                }
+            }
+        });
+
+        if (result['success'] == true) {
+            showAppSnackBar(context, 'İstek gönderildi, etkinlik sahibinin onayını bekliyorsun.');
+        } else {
+            showAppSnackBar(context, result['message'], color: Colors.red);
+        }
+    }
+
+    // topluluk sohbetinde etkinlik duyuru kartı (Message.EventId doluysa) - etkinlik detayına götürür, üstünden de direkt katılım isteği gönderilebilir
+    Widget _buildEventCard(Map<String, dynamic> message) {
+        final eventId = message['eventId'] as String;
+        final title = message['eventTitle'] ?? '';
+        final imageUrl = message['eventImageUrl'];
+        final participantCount = message['eventParticipantCount'] ?? 0;
+        final status = message['eventParticipationStatus']; // null / Pending / Approved / Rejected
+        final isJoining = _joiningEventIds.contains(eventId);
+
+        String dateText = '';
+        if (message['eventStartTime'] != null) {
+            final startTime = DateTime.parse(message['eventStartTime']).toLocal();
+            dateText = '${startTime.day}/${startTime.month}/${startTime.year} ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+        }
+
+        Widget trailingButton;
+        if (status == 'Approved') {
+            trailingButton = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: const Color(0xFF25D366), borderRadius: BorderRadius.circular(16)),
+                child: const Text('Katılıyorsun', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+            );
+        } else if (status == 'Pending') {
+            trailingButton = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(16)),
+                child: const Text('İstek gönderildi', style: TextStyle(fontSize: 12, color: Colors.black54)),
+            );
+        } else if (status == 'Rejected') {
+            trailingButton = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                child: const Text('İstek reddedildi', style: TextStyle(fontSize: 12, color: Colors.white)),
+            );
+        } else {
+            trailingButton = SizedBox(
+                height: 32,
+                child: ElevatedButton(
+                    onPressed: isJoining ? null : () => _joinEventFromCard(message),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A237E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: isJoining
+                        ? const SizedBox(
+                            height: 14,
+                            width: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                        : const Text('Katıl', style: TextStyle(fontSize: 12)),
+                ),
+            );
+        }
+
+        return GestureDetector(
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => EventDetailPage(eventId: eventId)),
+            ),
+            child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        if (imageUrl != null)
+                            Image.network(imageUrl, height: 120, width: double.infinity, fit: BoxFit.cover),
+                        Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                    Row(
+                                        children: [
+                                            const Icon(Icons.event, size: 16, color: Color(0xFF128C7E)),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                                message['isDeleted'] == true ? 'Bu mesaj silindi' : (message['content'] ?? 'Yeni etkinlik oluşturuldu'),
+                                                style: const TextStyle(fontSize: 11, color: Color(0xFF128C7E), fontWeight: FontWeight.bold),
+                                            ),
+                                        ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
+                                    if (dateText.isNotEmpty)
+                                        Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(dateText, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                        ),
+                                    const SizedBox(height: 4),
+                                    Text('$participantCount kişi katılıyor', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                    const SizedBox(height: 10),
+                                    Align(alignment: Alignment.centerRight, child: trailingButton),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        );
+    }
+
     Future<void> _send() async {
         final content = _textController.text.trim();
         if (content.isEmpty) return;
@@ -293,6 +431,16 @@ class _CommunityChatPageState extends State<CommunityChatPage> {
                                                 ),
                                             )
                                             : const SizedBox.shrink();
+
+                                        if (message['eventId'] != null) {
+                                            return Column(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                    daySeparator,
+                                                    _buildEventCard(message),
+                                                ],
+                                            );
+                                        }
 
                                         if (isAnnouncement) {
                                             return Column(

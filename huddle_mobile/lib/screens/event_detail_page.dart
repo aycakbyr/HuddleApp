@@ -82,6 +82,7 @@ class _EventDetailPageState extends State<EventDetailPage>{
             'organizerAverageRating': e['organizerAverageRating'],
             'organizerRatingCount': e['organizerRatingCount'] ?? 0,
             'eventRatings': List<Map<String, dynamic>>.from(e['eventRatings'] ?? []),
+            'communityName': e['communityName'],
         };
     }
 
@@ -374,16 +375,41 @@ class _EventDetailPageState extends State<EventDetailPage>{
                             ),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                                color: const Color(0xFF1A237E).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                                event['category'],
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E)),
-                            ),
+                        Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                                Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                        color: const Color(0xFF1A237E).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                        event['category'],
+                                        style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E)),
+                                    ),
+                                ),
+                                if (event['communityName'] != null)
+                                    Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                            color: const Color(0xFF25D366).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                                const Icon(Icons.groups, size: 14, color: Color(0xFF128C7E)),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                    '${event['communityName']} etkinliği',
+                                                    style: const TextStyle(fontSize: 13, color: Color(0xFF128C7E)),
+                                                ),
+                                            ],
+                                        ),
+                                    ),
+                            ],
                         ),
                         const SizedBox(height: 16),
                         GestureDetector(

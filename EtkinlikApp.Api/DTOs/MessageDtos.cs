@@ -17,6 +17,14 @@ public class MessageDto //listeleme yaparken bizim Flutter'a geri göndereceğim
     public bool IsAnnouncement { get; set; }
     public bool IsDeleted { get; set; }
     public bool IsRead { get; set; } //dm'de karşı taraf gördü mü (okundu tiki)
+
+    // topluluk sohbetinde etkinlik duyuru kartı göstermek için (Message.EventId doluysa bu alanlar dolar)
+    public Guid? EventId { get; set; }
+    public string? EventTitle { get; set; }
+    public DateTime? EventStartTime { get; set; }
+    public string? EventImageUrl { get; set; }
+    public int? EventParticipantCount { get; set; }
+    public string? EventParticipationStatus { get; set; } // "Pending" / "Approved" / "Rejected" / null (henüz istek yok)
 }
 
 public class ConversationSummaryDto //sohbet sekmesindeki dm listesi

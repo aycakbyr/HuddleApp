@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:dio/dio.dart';
 import '../services/event_service.dart';
+import '../services/community_service.dart';
 import '../utils/snackbar_helper.dart';
 
 
@@ -19,6 +20,7 @@ class CreateEventPage extends StatefulWidget {
 
 class _CreateEventPageState extends State<CreateEventPage> {
     final _eventService = EventService();
+    final _communityService = CommunityService();
     final _titleController = TextEditingController();
     final _descriptionController = TextEditingController();
     final _addressController = TextEditingController();
@@ -27,6 +29,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
     List<Map<String, dynamic>> _categories = [];
     String? _selectedCategoryId;
     bool _loadingCategories = true;
+
+    List<Map<String, dynamic>> _myCommunities = []; // üye olunan topluluklar (etkinliği bağlamak için)
+    String? _selectedCommunityId; // null = bağımsız etkinlik
+    bool _loadingCommunities = true;
 
     String _selectedTargetGender = 'all'; // 'all' | 'male' | 'female'
     DateTime? _startTime;
@@ -48,6 +54,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
     void initState() {
         super.initState();
         _loadCategories();
+        _loadCommunities();
         if (widget.eventIdToEdit != null){
             _loadEventToEdit();
         }
@@ -69,6 +76,17 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 : raw['targetGender'] == 'Female'
                     ? 'female'
                     : 'all';
+            _selectedCommunityId = raw['communityId'];
+        });
+    }
+
+    // üye olunan toplulukları getirir (etkinliği bir topluluğa bağlamak için)
+    Future<void> _loadCommunities() async {
+        final communities = await _communityService.getCommunities();
+        if (!mounted) return;
+        setState(() {
+            _myCommunities = communities.where((c) => c['isMember'] == true).toList();
+            _loadingCommunities = false;
         });
     }
     Future<void> _loadCategories() async {
@@ -151,6 +169,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
             longitude: _selectedLocation!.longitude,
             targetGender: genderValue,
             startTime: _startTime!,
+            communityId: _selectedCommunityId,
             )
             : await _eventService.updateEvent(
                 eventId: widget.eventIdToEdit!,
@@ -162,6 +181,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 longitude: _selectedLocation!.longitude,
                 targetGender: genderValue,
                 startTime: _startTime!,
+                communityId: _selectedCommunityId,
             );
 
         if (!mounted) return;
@@ -364,6 +384,61 @@ class _CreateEventPageState extends State<CreateEventPage> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(_categoryError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
                             ),
+                        const SizedBox(height: 16),
+
+                        // üye olunan bir topluluğa bağlanabilir - boş bırakılırsa bağımsız etkinlik olur
+                        const Text('Topluluk (opsiyonel)', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        _loadingCommunities
+                            ? const Center(child: CircularProgressIndicator())
+                            : _myCommunities.isEmpty
+                                ? const Text(
+                                    'Üye olduğun bir topluluk yok, bu yüzden etkinlik bağımsız olacak.',
+                                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                                )
+                                : Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                        GestureDetector(
+                                            onTap: () => setState(() => _selectedCommunityId = null),
+                                            child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                decoration: BoxDecoration(
+                                                    color: _selectedCommunityId == null ? const Color(0xFF1A237E) : Colors.white,
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    border: Border.all(color: const Color(0xFF1A237E)),
+                                                ),
+                                                child: Text(
+                                                    'Bağımsız',
+                                                    style: TextStyle(
+                                                        color: _selectedCommunityId == null ? Colors.white : const Color(0xFF1A237E),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                        ..._myCommunities.map((community) {
+                                            final isSelected = _selectedCommunityId == community['id'];
+                                            return GestureDetector(
+                                                onTap: () => setState(() => _selectedCommunityId = community['id']),
+                                                child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                        color: isSelected ? const Color(0xFF1A237E) : Colors.white,
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        border: Border.all(color: const Color(0xFF1A237E)),
+                                                    ),
+                                                    child: Text(
+                                                        community['name'],
+                                                        style: TextStyle(
+                                                            color: isSelected ? Colors.white : const Color(0xFF1A237E),
+                                                        ),
+                                                    ),
+                                                ),
+                                            );
+                                        }),
+                                    ],
+                                ),
                         const SizedBox(height: 16),
 
                         const Text('Kime açık', style: TextStyle(color: Colors.grey, fontSize: 14)),
